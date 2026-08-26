@@ -1,0 +1,43 @@
+# ==============================================================================
+# 000-MISSION-CONTROL: CADDY EDGE REVERSE PROXY WITH AUTO-SSL & SECURITY HEADERS
+# ==============================================================================
+
+{
+    email {$ADMIN_EMAIL:admin@000.localhost}
+    # Optional debug mode:
+    # debug
+}
+
+{$DOMAIN_NAME:000.localhost} {
+    # Modern Compression (Zstandard & Gzip)
+    encode zstd gzip
+
+    # Production Edge Security Headers
+    header {
+        # Enforce HTTPS strictly (HSTS)
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        # Prevent MIME-sniffing
+        X-Content-Type-Options "nosniff"
+        # Protect against clickjacking
+        X-Frame-Options "SAMEORIGIN"
+        # Referrer Policy
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # Disable server banner leak
+        -Server
+    }
+
+    # Reverse proxy to the Nginx App container
+    reverse_proxy app:80 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+
+    # Standard access and error logging
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}

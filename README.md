@@ -22,8 +22,9 @@
 - [7. Горячие клавиши и управление (Keyboard Shortcuts)](#7-горячие-клавиши-и-управление-keyboard-shortcuts)
 - [8. Темы оформления и плотность UI (Design System & Themes)](#8-темы-оформления-и-плотность-ui-design-system--themes)
 - [9. Быстрый старт и локальный запуск (Quick Start)](#9-быстрый-старт-и-локальный-запуск-quick-start)
-- [10. Структура репозитория (Project Structure)](#10-структура-репозитория-project-structure)
-- [11. Дополнительная документация (Deep Dives)](#11-дополнительная-документация-deep-dives)
+- [10. Развертывание в Docker и на VPS (Docker & VPS Deployment)](#10--развертывание-в-docker-и-на-vps-docker--vps-deployment)
+- [11. Структура репозитория (Project Structure)](#11-структура-репозитория-project-structure)
+- [12. Дополнительная документация (Deep Dives)](#12-дополнительная-документация-deep-dives)
 
 ---
 
@@ -284,57 +285,74 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup-hosts.ps1
 
 ---
 
-## 10. Структура репозитория (Project Structure)
+## 10. 🐳 Развертывание в Docker и на VPS (Docker & VPS Deployment)
+
+### 🚀 Быстрый запуск на VPS за 2 минуты (Ubuntu / Debian / CentOS):
+```bash
+# Клонирование и запуск интерактивного мастера с авто-выпуском SSL:
+git clone https://github.com/3030202/000.git /opt/000
+cd /opt/000
+sudo ./scripts/deploy-vps.sh
+```
+
+### 📦 Ручной запуск стека (Docker Compose + Caddy Auto-SSL):
+```bash
+# 1. Настройка переменных окружения
+cp .env.example .env
+# Отредактируйте DOMAIN_NAME и ADMIN_EMAIL в .env
+
+# 2. Сборка и запуск в фоне
+docker compose up -d --build
+```
+
+### ⚡ Запуск одиночного контейнера Standalone (порт 3000):
+```bash
+docker compose -f docker-compose.standalone.yml up -d --build
+```
+
+> 📖 Подробное руководство по эксплуатации, Cloudflare, бэкапам и устранению неполадок: **[docs/DEPLOYMENT_GUIDE.md](file:///home/mx/000/docs/DEPLOYMENT_GUIDE.md)**.
+
+---
+
+## 11. Структура репозитория (Project Structure)
 
 ```
 000/
 ├── docs/                               # Полный комплект технической документации
 │   ├── ARCHITECTURE.md                 # Глубокий анализ архитектуры и потоков данных
 │   ├── MODULES_CATALOG.md              # Спецификация всех 70 модулей (Group A-I)
-│   └── API_AND_DATA_SPEC.md            # Спецификация типов, API и структур данных
+│   ├── API_AND_DATA_SPEC.md            # Спецификация типов, API и структур данных
+│   └── DEPLOYMENT_GUIDE.md             # Пошаговое руководство по Docker & VPS
 ├── scripts/
+│   ├── deploy-vps.sh                   # Интерактивный установщик на VPS с авто-SSL
+│   ├── update-vps.sh                   # Скрипт бесшовного обновления версии
 │   └── setup-hosts.ps1                 # Скрипт конфигурации локальных поддоменов
 ├── src/
-│   ├── components/                     # Компоненты приложения
-│   │   ├── layout/                     # Базовый каркас интерфейса
-│   │   │   ├── Header.tsx              # Верхняя статусная панель и DEFCON контроллер
-│   │   │   ├── ModuleGrid.tsx          # Tiling композитор сетки тайлов
-│   │   │   ├── FloatingTools.tsx       # Плавающий HUD тулбокс (Ping/Gen/Hash/B64/JSON)
-│   │   │   └── Footer.tsx              # Нижняя строка состояния и подсказки клавиш
-│   │   ├── SpotlightModal.tsx          # Универсальный поиск Ctrl+K
-│   │   ├── ModulePickerModal.tsx       # Каталог и селектор 70 модулей (F8)
-│   │   ├── LayoutProfilesModal.tsx     # Настройки сетки, тем, плотности и слотов (F9)
-│   │   └── MasterPasswordModal.tsx     # Диалог разблокировки Zero-Knowledge Vault
-│   ├── context/                        # Провайдеры React Context
-│   │   ├── DashboardContext.tsx        # Глобальное состояние раскладки, темы, модулей
-│   │   ├── VaultContext.tsx            # Состояние шифрования, мастер-ключа и маскировки
-│   │   └── ToolsContext.tsx            # Состояние терминала, блокнота, логов и утилит
+│   ├── components/                     # Компоненты приложения (layout, modals)
+│   ├── context/                        # Провайдеры React Context (Dashboard, Vault, Tools)
 │   ├── hooks/                          # Пользовательские React хуки
-│   │   ├── useKeyboardShortcuts.ts     # Обработчик глобальных горячих клавиш
-│   │   └── useSystemClock.ts           # Высокоточный таймер UTC/Local времени
-│   ├── modules/                        # Реализация виджетов по группам
+│   ├── modules/                        # Реализация виджетов и верстаков по группам
 │   │   ├── groupA/                     # Проекты, ссылки и верстак инспектора
 │   │   ├── groupB/                     # Секреты, генераторы и верстак ключей
 │   │   ├── groupC/                     # Артефакты, хэши и реестр релизов
 │   │   ├── groupD/                     # Мониторинг, метрики SLA и Health верстак
-│   │   ├── groupE/                     # Интерактивный CLI терминал и макросы
+│   │   ├── groupE/                     # CLI терминал и Cloudflare Ops верстак
 │   │   ├── groupF/                     # Журнал аудита и уровни DEFCON
 │   │   ├── groupG/                     # ASCII и сетевая топология
 │   │   ├── groupH/                     # Markdown блокнот и утилиты
+│   │   ├── groupI/                     # Telegram Bot Gateway и алерты
 │   │   └── registry.tsx                # Центральный реестр сопоставления виджетов
-│   ├── services/                       # Сервисы и движки
-│   │   ├── crypto.ts                   # WebCrypto AES-GCM-256 + PBKDF2
-│   │   ├── soundFx.ts                  # WebAudio генератор звуков
-│   │   ├── moduleCatalog.ts            # Описание 70 модулей каталога
-│   │   └── initialData.ts              # Начальный датасет (проекты, ключи, эндпоинты)
+│   ├── services/                       # API клиенты (Telegram, Cloudflare, Crypto, Audio)
 │   ├── types/                          # TypeScript интерфейсы и типы
-│   │   └── index.ts                    # Единый реестр типов данных
 │   ├── App.tsx                         # Корневой композитор с провайдерами
 │   ├── main.tsx                        # Точка входа React 19
 │   └── index.css                       # CSS-движок TUI тем, плотности и сеток
-├── design_system.md                    # Спецификация дизайн-системы
-├── task.md                             # Журнал задач проекта
-├── walkthrough.md                      # Журнал выполненных шагов и верификаций
+├── Dockerfile                          # Multi-stage production образ (Node 20 -> Nginx Alpine)
+├── docker-compose.yml                  # Production стек с Caddy Auto-SSL
+├── docker-compose.standalone.yml       # Standalone профиль на порту 3000
+├── Caddyfile                           # Конфигурация Caddy с Let's Encrypt и HSTS
+├── nginx.conf                          # Конфигурация Nginx SPA с gzip и кэшированием
+├── .env.example                        # Шаблон переменных окружения
 ├── package.json                        # Манифест зависимостей и скриптов
 ├── tsconfig.json                       # Конфигурация компилятора TypeScript
 └── vite.config.ts                      # Конфигурация сборщика Vite
@@ -342,10 +360,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\setup-hosts.ps1
 
 ---
 
-## 11. Дополнительная документация (Deep Dives)
+## 12. Дополнительная документация (Deep Dives)
 
 Для детального ознакомления с технической реализацией обратитесь к специализированным документам:
 
+- 🐳 **[docs/DEPLOYMENT_GUIDE.md](file:///home/mx/000/docs/DEPLOYMENT_GUIDE.md)** — Пошаговое руководство по запуску на VPS, Docker Compose, авто-SSL Let's Encrypt и Cloudflare.
 - 📐 **[docs/ARCHITECTURE.md](file:///home/mx/000/docs/ARCHITECTURE.md)** — Подробный разбор архитектуры, потоков данных, работы TUI-композитора, WebCrypto шифрования и WebAudio синтезатора.
 - 🗂️ **[docs/MODULES_CATALOG.md](file:///home/mx/000/docs/MODULES_CATALOG.md)** — Полный каталог всех 70 модулей (коды, назначения, типы виджетов, режимы расширенного инспектора).
 - 🧬 **[docs/API_AND_DATA_SPEC.md](file:///home/mx/000/docs/API_AND_DATA_SPEC.md)** — Спецификация типов данных, формата зашифрованных полезных нагрузок, CLI команд и схемы хранилища `localStorage`.

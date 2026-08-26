@@ -1,0 +1,22 @@
+# ==============================================================================
+# 000-MISSION-CONTROL: STANDALONE SINGLE-CONTAINER DOCKER COMPOSE PROFILE
+# Use this when running behind an existing external reverse proxy (Traefik, Nginx,
+# Cloudflare Tunnel) or for local standalone testing on port 3000.
+# Run with: docker compose -f docker-compose.standalone.yml up -d --build
+# ==============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: 000_standalone_app
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:80"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

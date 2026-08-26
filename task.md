@@ -32,6 +32,10 @@
 
 ### TASK-008: Cloud Integration Services & Workbenches (Telegram & Cloudflare)
 - Target: Implement `src/services/telegramApi.ts`, `src/services/cloudflareApi.ts`, widgets & 2-column workbenches for `I2` and `E2`, CLI terminal commands `telegram send`, `cf purge`, `cf dns`, and update registry.
+- Status: COMPLETED
+
+### TASK-009: Production Docker & VPS Deployment Infrastructure
+- Target: Create multi-stage `Dockerfile`, `docker-compose.yml`, `Caddyfile` with auto-SSL, `nginx.conf` SPA router, standalone profile, automated setup scripts `deploy-vps.sh` and `update-vps.sh`, and `docs/DEPLOYMENT_GUIDE.md`.
 - Status: PENDING
 
 ---
@@ -117,3 +121,13 @@
   • Reference: TASK-008
   • New Status: COMPLETED
   • Notes: Telegram Bot Gateway (I2) & Cloudflare Ops (E2) implemented with 2-tier workbenches and CLI terminal commands. Production build verified (tsc + vite build 0 errors).
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-009
+  • New Status: IN_PROGRESS
+  • Notes: Creating multi-stage Dockerfile, docker-compose.yml, Caddyfile, nginx.conf, scripts/deploy-vps.sh, scripts/update-vps.sh, and docs/DEPLOYMENT_GUIDE.md.
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-009
+  • New Status: COMPLETED
+  • Notes: Multi-stage Docker production stack with Caddy auto-SSL, standalone profile, automated VPS scripts, and docs/DEPLOYMENT_GUIDE.md created. All scripts verified.

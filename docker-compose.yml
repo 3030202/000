@@ -1,0 +1,55 @@
+# ==============================================================================
+# 000-MISSION-CONTROL: PRODUCTION DOCKER COMPOSE STACK
+# Services:
+#   1. app: Multi-stage Nginx SPA container with hardened security
+#   2. caddy: Edge proxy with automatic Let's Encrypt / ZeroSSL certificate engine
+# ==============================================================================
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: 000_app
+    restart: unless-stopped
+    expose:
+      - "80"
+    networks:
+      - 000-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: 000_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3 QUIC support
+    environment:
+      - DOMAIN_NAME=${DOMAIN_NAME:-000.localhost}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-admin@000.localhost}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - 000-net
+
+networks:
+  000-net:
+    driver: bridge
+
+volumes:
+  caddy_data:
+    name: 000_caddy_data
+  caddy_config:
+    name: 000_caddy_config
