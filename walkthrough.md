@@ -25,3 +25,17 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   4. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx): Registered `G1`, `G3`, `C3` in standard and expanded registries.
 - **Verification**: Ran `npm run build` (`tsc && vite build`) — 1,843 modules transformed, production build passed in 9.80s with 0 errors.
 
+### [2026-08-27] Production VPS Deployment to Subdomain 03.0x101.lol
+- **Target Server**: `31.76.102.23` (Ubuntu 24.04 LTS x86_64, Docker 29.1.3).
+- **Domain**: `https://03.0x101.lol`
+- **Actions Executed**:
+  1. Cloned latest repository to `/opt/000` on remote VPS.
+  2. Configured `.env` with `DOMAIN_NAME=03.0x101.lol` and `PORT=3000`.
+  3. Built and launched multi-stage Docker production container `000_standalone_app` with healthcheck.
+  4. Connected container to host's `artefactory_default` Docker bridge network.
+  5. Updated `/opt/artefactory/Caddyfile` reverse proxy routing `03.0x101.lol` -> `000_standalone_app:80`.
+  6. Reloaded Caddy edge reverse proxy.
+- **Verification**:
+  - Live HTTPS GET `https://03.0x101.lol/`: returned `HTTP/2 200 OK` (via Cloudflare + Caddy edge proxy).
+  - Asset verification `https://03.0x101.lol/assets/index-DbI1e6VF.js`: returned `HTTP/2 200 OK` with immutable caching headers.
+

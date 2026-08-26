@@ -40,7 +40,11 @@
 
 ### TASK-010: Interactive Cyber Topology Canvas (G1), Resource Usage (G3), & Docker Workbench (C3)
 - Target: Implement `TopologyCanvasWidgets.tsx` (HTML5 Canvas 2D physics graph), `ResourceUsageWidgets.tsx` (CPU/RAM/Disk hardware gauges), `DockerWidgets.tsx` (Container registry & streaming log console), and update central registry.
-- Status: PENDING
+- Status: COMPLETED
+
+### TASK-011: Live Production VPS Deployment to Subdomain 03.0x101.lol
+- Target: Deploy 000-Mission-Control multi-stage container to VPS 31.76.102.23, bind to Docker network `artefactory_default`, configure Caddy reverse proxy on port 80/443 with Cloudflare SSL termination for `03.0x101.lol`.
+- Status: COMPLETED
 
 ---
 
@@ -145,3 +149,8 @@
   • Reference: TASK-010
   • New Status: COMPLETED
   • Notes: G1 (Cyber Topology Canvas), G3 (Resource Usage Monitor), and C3 (Docker Container Registry) 2-tier workbenches implemented and registered. Production build verified (tsc + vite build 0 errors).
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-011
+  • New Status: COMPLETED
+  • Notes: Successfully deployed 000-Mission-Control production container stack on remote VPS 31.76.102.23. Connected to artefactory_default network and configured Caddy reverse proxy for subdomain 03.0x101.lol. Verified live HTTPS endpoint returning HTTP/2 200 OK.
