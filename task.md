@@ -28,6 +28,10 @@
 
 ### TASK-007: Comprehensive System Analysis & Technical Documentation
 - Target: Perform complete structural, architectural, cryptographic, and operational analysis of the project and create full documentation suite (`README.md`, `docs/ARCHITECTURE.md`, `docs/MODULES_CATALOG.md`, `docs/API_AND_DATA_SPEC.md`).
+- Status: COMPLETED
+
+### TASK-008: Cloud Integration Services & Workbenches (Telegram & Cloudflare)
+- Target: Implement `src/services/telegramApi.ts`, `src/services/cloudflareApi.ts`, widgets & 2-column workbenches for `I2` and `E2`, CLI terminal commands `telegram send`, `cf purge`, `cf dns`, and update registry.
 - Status: PENDING
 
 ---
@@ -103,3 +107,13 @@
   • Reference: TASK-007
   • New Status: COMPLETED
   • Notes: Created README.md, docs/ARCHITECTURE.md, docs/MODULES_CATALOG.md, docs/API_AND_DATA_SPEC.md. Production build verified (tsc + vite build 0 errors).
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-008
+  • New Status: IN_PROGRESS
+  • Notes: Implementing telegramApi.ts, cloudflareApi.ts, TelegramWidgets.tsx, CloudflareWidgets.tsx, expanding ToolsContext CLI parser, and updating registry.
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-008
+  • New Status: COMPLETED
+  • Notes: Telegram Bot Gateway (I2) & Cloudflare Ops (E2) implemented with 2-tier workbenches and CLI terminal commands. Production build verified (tsc + vite build 0 errors).

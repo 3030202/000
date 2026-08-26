@@ -176,6 +176,46 @@ export const INITIAL_SECRETS: SecretItem[] = [
     service: 'Auth Microservice',
     tags: ['JWT', 'HS512', 'Auth'],
     description: 'HMAC-SHA512 private salt used for signing user session tokens and refresh cookies.'
+  },
+  {
+    id: 'sec-07',
+    name: 'TELEGRAM_BOT_TOKEN',
+    category: 'API Key',
+    value: '7123456789:AAFlkjw982_sample_bot_token_000',
+    env: 'production',
+    service: 'Telegram Notifier Gateway (I2)',
+    tags: ['Telegram', 'Bot', 'Alerts', 'I2'],
+    description: 'Telegram Bot API Token used by Module I2 for emergency incident dispatches and alerts.'
+  },
+  {
+    id: 'sec-08',
+    name: 'TELEGRAM_CHAT_ID',
+    category: 'API Key',
+    value: '-100192837465',
+    env: 'production',
+    service: 'Telegram Notifier Gateway (I2)',
+    tags: ['Telegram', 'ChatID', 'SRE'],
+    description: 'Target Telegram Group / Channel Chat ID for broadcasting mission control alerts.'
+  },
+  {
+    id: 'sec-09',
+    name: 'CLOUDFLARE_API_TOKEN',
+    category: 'Cloud Credentials',
+    value: 'cf_api_tok_98a7bc6d5e4f3a2b1c0d9e8f7a6b5c4d',
+    env: 'production',
+    service: 'Cloudflare Edge CDN / DNS (E2)',
+    tags: ['Cloudflare', 'CDN', 'DNS', 'PurgeCache'],
+    description: 'Scoped API Token with Zone.Cache Purge and Zone.DNS permissions for 000 infrastructure.'
+  },
+  {
+    id: 'sec-10',
+    name: 'CLOUDFLARE_ZONE_ID',
+    category: 'Cloud Credentials',
+    value: '023e105f4ecef8ad9ca31a8372d0c353',
+    env: 'production',
+    service: 'Cloudflare Edge CDN / DNS (E2)',
+    tags: ['Cloudflare', 'ZoneID', 'DNS'],
+    description: 'Target Cloudflare Zone ID for 000.localhost and production apex domains.'
   }
 ];
 

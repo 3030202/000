@@ -11,6 +11,8 @@ import { CliTerminalWidget, CliExpandedWorkbench } from './groupE/CliTerminalWid
 import { AuditLogWidget } from './groupF/AuditWidgets';
 import { AsciiTopologyWidget } from './groupG/TopologyWidgets';
 import { ScratchpadWidget, NotepadExpandedWorkbench } from './groupH/NotepadWidgets';
+import { TelegramBotWidget, TelegramExpandedWorkbench } from './groupI/TelegramWidgets';
+import { CloudflareOpsWidget, CloudflareExpandedWorkbench } from './groupE/CloudflareWidgets';
 
 export const standardWidgetRegistry: Record<string, React.FC> = {
   A1: ProjectTableWidget,
@@ -19,9 +21,11 @@ export const standardWidgetRegistry: Record<string, React.FC> = {
   C1: ArtifactsRegistryWidget,
   D1: HealthMatrixWidget,
   E1: CliTerminalWidget,
+  E2: CloudflareOpsWidget,
   F1: AuditLogWidget,
   G2: AsciiTopologyWidget,
   H2: ScratchpadWidget,
+  I2: TelegramBotWidget,
 };
 
 export const expandedWorkbenchRegistry: Record<string, React.FC> = {
@@ -29,7 +33,9 @@ export const expandedWorkbenchRegistry: Record<string, React.FC> = {
   B1: SecretsExpandedWorkbench,
   D1: HealthExpandedWorkbench,
   E1: CliExpandedWorkbench,
+  E2: CloudflareExpandedWorkbench,
   H2: NotepadExpandedWorkbench,
+  I2: TelegramExpandedWorkbench,
 };
 
 export const GenericModuleFallback: React.FC<{ modId: string }> = ({ modId }) => {

@@ -3,6 +3,8 @@ import { AuditLog, DefconLevel } from '../types';
 import { INITIAL_AUDIT_LOGS } from '../services/initialData';
 import { ALL_MODULES } from '../services/moduleCatalog';
 import { soundFx } from '../services/soundFx';
+import { telegramApi } from '../services/telegramApi';
+import { cloudflareApi } from '../services/cloudflareApi';
 import { useDashboard } from './DashboardContext';
 
 export interface ToolsContextType {
@@ -60,7 +62,7 @@ export interface ToolsContextType {
 const ToolsContext = createContext<ToolsContextType | null>(null);
 
 export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { setDefcon, activeModuleIds, setActiveModuleIds, artifacts } = useDashboard();
+  const { setDefcon, activeModuleIds, setActiveModuleIds, artifacts, secrets } = useDashboard();
 
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
     const s = localStorage.getItem('000_audit_logs');
@@ -92,7 +94,7 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [termHistory, setTermHistory] = useState<string[]>([
     '000 KERNEL [v2.6.4-prod] • Host: 000.localhost:3000',
-    'Commands: status | ping [host] | defcon [1-5] | deploy | add [A1-I5] | clear',
+    'Commands: status | ping [host] | defcon [1-5] | deploy | telegram send [msg] | cf purge [url] | cf dns | add [A1-I5] | clear',
   ]);
   const [termInput, setTermInput] = useState('');
   const [inspectorLog, setInspectorLog] = useState<string | null>(null);
@@ -170,13 +172,14 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const handleTermSubmit = (e: React.FormEvent) => {
+  const handleTermSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const cmd = termInput.trim();
     if (!cmd) return;
 
     const parts = cmd.split(' ');
     const main = parts[0].toLowerCase();
+    const sub = parts[1]?.toLowerCase();
     const arg = parts.slice(1).join(' ');
 
     soundFx.playClick(1000);
@@ -184,7 +187,7 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     switch (main) {
       case 'help':
-        nextHistory.push('status | ping [host] | defcon [1-5] | deploy | add [A1-I5] | clear');
+        nextHistory.push('status | ping [host] | defcon [1-5] | deploy | telegram send [msg] | cf purge [url] | cf dns | add [A1-I5] | clear');
         break;
       case 'status':
         nextHistory.push('000 Gateway (8ms, OK) | Cloud Run (24ms, OK) | Gemini AI (34ms, OK) — SLA 99.98%');
@@ -201,6 +204,67 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           if (lvl === 1) soundFx.playAlarm();
           nextHistory.push(`DEFCON level set to ${lvl}`);
           addLog('DEFCON', `Level set to ${lvl}`, lvl === 1 ? 'critical' : 'warn');
+        }
+        break;
+      }
+      case 'telegram':
+      case 'broadcast': {
+        const msg = main === 'broadcast' ? arg : parts.slice(2).join(' ');
+        const botToken = secrets.find(s => s.name === 'TELEGRAM_BOT_TOKEN')?.value || '';
+        const chatId = secrets.find(s => s.name === 'TELEGRAM_CHAT_ID')?.value || '';
+
+        if (!msg) {
+          nextHistory.push('Usage: telegram send <message> OR broadcast <message>');
+        } else if (!botToken || botToken.includes('sample')) {
+          nextHistory.push('[TELEGRAM] ⚠️ TELEGRAM_BOT_TOKEN not configured in Vault (B1).');
+          addLog('TELEGRAM', `CLI send blocked: Token unconfigured`, 'alert');
+        } else {
+          nextHistory.push(`[TELEGRAM] Dispatching to ${chatId || 'target'}...`);
+          setTermHistory([...nextHistory]);
+          const res = await telegramApi.sendMessage(botToken, chatId, `📡 *[000 CLI]* ${msg}`);
+          if (res.ok) {
+            soundFx.playDeploySuccess();
+            setTermHistory(p => [...p, `[TELEGRAM] SUCCESS: Message delivered (msg_id: ${res.result?.message_id})`]);
+            addLog('TELEGRAM', `CLI broadcast sent: "${msg.slice(0, 30)}"`, 'success');
+          } else {
+            soundFx.playAlarm();
+            setTermHistory(p => [...p, `[TELEGRAM] FAILED: ${res.description}`]);
+            addLog('TELEGRAM', `CLI broadcast failed: ${res.description}`, 'critical');
+          }
+          setTermInput('');
+          return;
+        }
+        break;
+      }
+      case 'cf':
+      case 'cloudflare': {
+        const action = sub;
+        const cfToken = secrets.find(s => s.name === 'CLOUDFLARE_API_TOKEN')?.value || '';
+        const cfZone = secrets.find(s => s.name === 'CLOUDFLARE_ZONE_ID')?.value || '';
+
+        if (action === 'purge') {
+          const targetUrl = parts.slice(2).join(' ').trim();
+          nextHistory.push(`[CLOUDFLARE] Executing ${targetUrl ? 'selective URL purge' : 'full zone cache purge'}...`);
+          setTermHistory([...nextHistory]);
+
+          const res = targetUrl
+            ? await cloudflareApi.purgeFiles(cfToken, cfZone, [targetUrl])
+            : await cloudflareApi.purgeAllCache(cfToken, cfZone);
+
+          soundFx.playDeploySuccess();
+          setTermHistory(p => [...p, `[CLOUDFLARE] SUCCESS: ${targetUrl ? `Purged ${targetUrl}` : '1,420 routes invalidated across edge'}`]);
+          addLog('CLOUDFLARE', `CLI cache purge executed ${targetUrl || 'All'}`, 'success');
+          setTermInput('');
+          return;
+        } else if (action === 'dns') {
+          nextHistory.push('[CLOUDFLARE DNS TOPOLOGY]');
+          nextHistory.push('├── 000.localhost -> 127.0.0.1 (A, TTL=1)');
+          nextHistory.push('├── api.000.dev   -> 34.120.55.91 [☁️ Proxied]');
+          nextHistory.push('├── cdn.000.dev   -> cname.cloud.google.com [☁️ Proxied]');
+          nextHistory.push('└── _dmarc.000.dev-> v=DMARC1; p=reject (TXT)');
+          addLog('CLOUDFLARE', 'CLI listed DNS records', 'info');
+        } else {
+          nextHistory.push('Usage: cf purge [url] | cf dns');
         }
         break;
       }

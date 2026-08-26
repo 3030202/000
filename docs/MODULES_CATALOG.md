@@ -82,8 +82,8 @@
 
 | Код | Название модуля | Тип виджета | По умолч. | Расширенный Workbench | Описание |
 |:---:|---|:---:|:---:|:---:|---|
-| `E1` | **Interactive CLI Terminal** | Терминал | ✅ ON | ✅ ДА (`CliExpandedWorkbench`) | Интерактивная консоль управления с эмулятором шелла (`help`, `status`, `ping`, `defcon`, `deploy`, `add`). |
-| `E2` | **Quick Runbooks** | Кнопки | ❌ | ❌ | Панель триггеров типовых регламентов (Очистка кэша, Staging деплой, Аудит безопасности). |
+| `E1` | **Interactive CLI Terminal** | Терминал | ✅ ON | ✅ ДА (`CliExpandedWorkbench`) | Интерактивная консоль управления с эмулятором шелла (`help`, `status`, `ping`, `defcon`, `deploy`, `add`, `telegram send`, `cf purge`, `cf dns`). |
+| `E2` | **Cloudflare Ops & Runbooks** | Ops Panel | ❌ | ✅ ДА (`CloudflareExpandedWorkbench`) | 1-click Purge Cache (Full Zone / URL), интерактивная таблица DNS-записей зоны с проксированием ☁️, SSL/TLS инспектор и cURL-раннер. |
 | `E3` | **Webhook Dispatcher** | Форма | ❌ | ❌ | Инструмент отправки произвольных HTTP POST/GET вебхуков с кастомными заголовками и телом. |
 | `E4` | **Curl Command Builder** | Генератор | ❌ | ❌ | Визуальный конструктор cURL-запросов с параметрами авторизации. |
 | `E5` | **Cron Schedule Table** | Таблица | ❌ | ❌ | Реестр фоновых планировщиков Cloud Scheduler и время следующего выполнения. |
@@ -142,7 +142,7 @@
 | Код | Название модуля | Тип виджета | По умолч. | Расширенный Workbench | Описание |
 |:---:|---|:---:|:---:|:---:|---|
 | `I1` | **Live Alert Stream** | Лента | ❌ | ❌ | Поток критических системных предупреждений в реальном времени. |
-| `I2` | **Telegram Bot Notifier** | Конфигуратор | ❌ | ❌ | Тестирование и отправка оповещений дежурным в Telegram каналы. |
+| `I2` | **Telegram Bot Notifier** | Gateway / Alert | ❌ | ✅ ДА (`TelegramExpandedWorkbench`) | Тестирование токена (getMe), интерактивная отправка оповещений дежурным в Telegram каналы, CLI broadcast и пресеты инцидентов. |
 | `I3` | **Slack Webhook Gateway** | Конфигуратор | ❌ | ❌ | Шлюз интеграции со Slack-каналами дежурной смены (#sre-alerts). |
 | `I4` | **SMTP Email Alert Rules** | Настройки | ❌ | ❌ | Правила эскалации и отправки почтовых алертов при сбоях. |
 | `I5` | **External RSS/Status Feeds**| Лента | ❌ | ❌ | Мониторинг публичных статус-страниц внешних провайдеров (GitHub, AWS, Cloudflare). |
