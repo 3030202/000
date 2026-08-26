@@ -24,14 +24,42 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, boolean>>({});
   const [animatingSecrets, setAnimatingSecrets] = useState<Record<string, string>>({});
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
-  const masterPassword = 'admin000';
 
   const unlockVault = (pass: string): boolean => {
-    if (pass === masterPassword) {
+    const clean = pass.trim();
+    if (clean === 'admin000') {
       setIsVaultUnlocked(true);
       soundFx.playDeploySuccess();
       return true;
     }
+
+    if (clean.length === 4) {
+      const now = new Date();
+      // Moscow Time (UTC+3 / Europe/Moscow)
+      const mskTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+      const hh = String(mskTime.getHours()).padStart(2, '0');
+      const mm = String(mskTime.getMinutes()).padStart(2, '0');
+      const currentPrefix = `${hh}${mm.charAt(0)}`;
+
+      // 1-minute window tolerance around boundary
+      const prevTime = new Date(mskTime.getTime() - 60000);
+      const prevHh = String(prevTime.getHours()).padStart(2, '0');
+      const prevMm = String(prevTime.getMinutes()).padStart(2, '0');
+      const prevPrefix = `${prevHh}${prevMm.charAt(0)}`;
+
+      const nextTime = new Date(mskTime.getTime() + 60000);
+      const nextHh = String(nextTime.getHours()).padStart(2, '0');
+      const nextMm = String(nextTime.getMinutes()).padStart(2, '0');
+      const nextPrefix = `${nextHh}${nextMm.charAt(0)}`;
+
+      const inputPrefix = clean.slice(0, 3);
+      if (inputPrefix === currentPrefix || inputPrefix === prevPrefix || inputPrefix === nextPrefix) {
+        setIsVaultUnlocked(true);
+        soundFx.playDeploySuccess();
+        return true;
+      }
+    }
+
     soundFx.playAlarm();
     return false;
   };
