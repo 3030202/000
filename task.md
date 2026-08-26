@@ -36,6 +36,10 @@
 
 ### TASK-009: Production Docker & VPS Deployment Infrastructure
 - Target: Create multi-stage `Dockerfile`, `docker-compose.yml`, `Caddyfile` with auto-SSL, `nginx.conf` SPA router, standalone profile, automated setup scripts `deploy-vps.sh` and `update-vps.sh`, and `docs/DEPLOYMENT_GUIDE.md`.
+- Status: COMPLETED
+
+### TASK-010: Interactive Cyber Topology Canvas (G1), Resource Usage (G3), & Docker Workbench (C3)
+- Target: Implement `TopologyCanvasWidgets.tsx` (HTML5 Canvas 2D physics graph), `ResourceUsageWidgets.tsx` (CPU/RAM/Disk hardware gauges), `DockerWidgets.tsx` (Container registry & streaming log console), and update central registry.
 - Status: PENDING
 
 ---
@@ -131,3 +135,13 @@
   • Reference: TASK-009
   • New Status: COMPLETED
   • Notes: Multi-stage Docker production stack with Caddy auto-SSL, standalone profile, automated VPS scripts, and docs/DEPLOYMENT_GUIDE.md created. All scripts verified.
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-010
+  • New Status: IN_PROGRESS
+  • Notes: Implementing TopologyCanvasWidgets.tsx (HTML5 Canvas 2D particle mesh), ResourceUsageWidgets.tsx (CPU/RAM/Disk gauges), DockerWidgets.tsx (Container registry & streaming log console), and updating registry.tsx.
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-010
+  • New Status: COMPLETED
+  • Notes: G1 (Cyber Topology Canvas), G3 (Resource Usage Monitor), and C3 (Docker Container Registry) 2-tier workbenches implemented and registered. Production build verified (tsc + vite build 0 errors).

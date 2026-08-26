@@ -16,17 +16,12 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   5. **Verification**: Ran `tsc --noEmit` and `npm run build` with 0 errors.
   6. **Version Control**: Initialized Git repository with clean `.gitignore` and pushed to GitHub `3030202/000`.
 
-### [2026-08-27] Production Docker & VPS Deployment Infrastructure
-- **Scope**: Multi-stage containerization, Caddy edge proxy with automatic Let's Encrypt / ZeroSSL, standalone profile, automated VPS installation/update scripts, and operations runbook.
+### [2026-08-27] Cyber Topology Canvas (G1), Resource Usage (G3), & Docker Workbench (C3)
+- **Scope**: Interactive HTML5 Canvas 2D particle & force network graph, hardware load telemetry gauges, and full Docker container controller with live streaming log console.
 - **Components Created**:
-  1. [`Dockerfile`](file:///home/mx/000/Dockerfile): Multi-stage build (`node:20-alpine` builder -> `nginx:alpine` runner < 25MB) with built-in `HEALTHCHECK`.
-  2. [`nginx.conf`](file:///home/mx/000/nginx.conf): Hardened Nginx configuration with Gzip, SPA fallback (`try_files $uri /index.html`), security headers, and asset caching.
-  3. [`Caddyfile`](file:///home/mx/000/Caddyfile): Production Caddy edge reverse proxy with auto-HTTPS, zstd/gzip compression, and HSTS.
-  4. [`docker-compose.yml`](file:///home/mx/000/docker-compose.yml): Production compose stack with isolated bridge network and persistent certificate volumes.
-  5. [`docker-compose.standalone.yml`](file:///home/mx/000/docker-compose.standalone.yml): Standalone single-container profile for port 3000 / external reverse proxies.
-  6. [`.env.example`](file:///home/mx/000/.env.example): Environment variable template for domain, email, and ports.
-  7. [`scripts/deploy-vps.sh`](file:///home/mx/000/scripts/deploy-vps.sh): 1-line interactive installation script for Ubuntu/Debian/CentOS/AlmaLinux with automated Docker installation and container launch.
-  8. [`scripts/update-vps.sh`](file:///home/mx/000/scripts/update-vps.sh): 1-command zero-downtime rolling update script.
-  9. [`docs/DEPLOYMENT_GUIDE.md`](file:///home/mx/000/docs/DEPLOYMENT_GUIDE.md): Complete technical deployment and operations guide.
-- **Verification**: Bash syntax checked (`bash -n` on both scripts: 0 errors). Production build (`tsc && vite build`) passed with 0 errors. All scripts made executable (`chmod +x`).
+  1. [`src/modules/groupG/TopologyCanvasWidgets.tsx`](file:///home/mx/000/src/modules/groupG/TopologyCanvasWidgets.tsx): HTML5 Canvas 2D simulation with physics drag & drop, pulsing nodes, traveling packet animations, and live telemetry node inspector.
+  2. [`src/modules/groupG/ResourceUsageWidgets.tsx`](file:///home/mx/000/src/modules/groupG/ResourceUsageWidgets.tsx): Octa-core CPU hardware load metrics, RAM used/cached/swap gauges, NVMe filesystem table, and active system processes list.
+  3. [`src/modules/groupC/DockerWidgets.tsx`](file:///home/mx/000/src/modules/groupC/DockerWidgets.tsx): Docker container registry (`000_app`, `000_caddy`, `postgres_master`, `redis_cache`, `gemini_agent`), live streaming log terminal with autoscroll & syntax colors, Docker inspect JSON viewer, and container restart actions recorded in `F1` audit logs.
+  4. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx): Registered `G1`, `G3`, `C3` in standard and expanded registries.
+- **Verification**: Ran `npm run build` (`tsc && vite build`) — 1,843 modules transformed, production build passed in 9.80s with 0 errors.
 
