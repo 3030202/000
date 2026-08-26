@@ -115,11 +115,15 @@ const DashboardContent: React.FC = () => {
         isOpen={isPasswordModalOpen}
         onClose={() => setIsPasswordModalOpen(false)}
         onUnlock={(pass) => {
-          const ok = unlockVault(pass);
-          if (ok) {
-            addLog('VAULT', 'Vault unlocked', 'success');
+          const res = unlockVault(pass);
+          if (res.success) {
+            addLog('VAULT', 'Zero-Knowledge Vault unlocked successfully', 'success');
+          } else if (res.error === 'BANNED') {
+            addLog('SECURITY', 'Security Lockout: 15-minute ban triggered (2 failed attempts)', 'critical');
+          } else {
+            addLog('VAULT', 'Invalid passphrase attempt (1 attempt remaining before lockout)', 'warn');
           }
-          return ok;
+          return res;
         }}
       />
     </div>

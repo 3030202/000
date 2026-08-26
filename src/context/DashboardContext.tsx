@@ -101,7 +101,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isPickerOpen, setIsPickerOpen] = useState<boolean>(false);
   const [isLayoutModalOpen, setIsLayoutModalOpen] = useState<boolean>(false);
   const [isSpotlightOpen, setIsSpotlightOpen] = useState<boolean>(false);
-  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(false);
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState<boolean>(true);
 
   const [defcon, setDefconState] = useState<DefconLevel>(5);
   const [soundOn, setSoundOnState] = useState<boolean>(soundFx.enabled);

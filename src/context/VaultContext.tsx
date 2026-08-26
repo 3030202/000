@@ -3,16 +3,25 @@ import { soundFx } from '../services/soundFx';
 import { generateMatrixScramble } from '../services/crypto';
 import { useDashboard } from './DashboardContext';
 
+export interface UnlockResult {
+  success: boolean;
+  error?: string;
+  bannedUntil?: number;
+  attemptsLeft?: number;
+}
+
 export interface VaultContextType {
   isVaultUnlocked: boolean;
   setIsVaultUnlocked: (unlocked: boolean) => void;
   revealedSecrets: Record<string, boolean>;
   animatingSecrets: Record<string, string>;
   copiedKeyId: string | null;
+  bannedUntil: number | null;
+  failedAttempts: number;
   handleToggleReveal: (id: string, realValue: string) => void;
   handleCopySecret: (id: string, val: string) => void;
   generateRandomKey: (len: number, type: 'hex' | 'alphanumeric') => string;
-  unlockVault: (pass: string) => boolean;
+  unlockVault: (pass: string) => UnlockResult;
   lockVault: () => void;
 }
 
@@ -25,18 +34,32 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [animatingSecrets, setAnimatingSecrets] = useState<Record<string, string>>({});
   const [copiedKeyId, setCopiedKeyId] = useState<string | null>(null);
 
-  const unlockVault = (pass: string): boolean => {
-    const clean = pass.trim();
-    if (clean === 'admin000') {
-      setIsVaultUnlocked(true);
-      soundFx.playDeploySuccess();
-      return true;
+  const [failedAttempts, setFailedAttempts] = useState<number>(() => {
+    return Number(localStorage.getItem('000_vault_failed_count') || '0');
+  });
+
+  const [bannedUntil, setBannedUntil] = useState<number | null>(() => {
+    const saved = Number(localStorage.getItem('000_vault_banned_until') || '0');
+    return saved > Date.now() ? saved : null;
+  });
+
+  const unlockVault = (pass: string): UnlockResult => {
+    const now = Date.now();
+    const storedBan = Number(localStorage.getItem('000_vault_banned_until') || '0');
+    if (storedBan > now) {
+      setBannedUntil(storedBan);
+      soundFx.playAlarm();
+      return { success: false, error: 'BANNED', bannedUntil: storedBan };
     }
 
-    if (clean.length === 4) {
-      const now = new Date();
+    const clean = pass.trim();
+    let isCorrect = false;
+
+    if (clean === 'admin000') {
+      isCorrect = true;
+    } else if (clean.length === 4) {
       // Moscow Time (UTC+3 / Europe/Moscow)
-      const mskTime = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
+      const mskTime = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Moscow' }));
       const hh = String(mskTime.getHours()).padStart(2, '0');
       const mm = String(mskTime.getMinutes()).padStart(2, '0');
       const currentPrefix = `${hh}${mm.charAt(0)}`;
@@ -54,14 +77,34 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
       const inputPrefix = clean.slice(0, 3);
       if (inputPrefix === currentPrefix || inputPrefix === prevPrefix || inputPrefix === nextPrefix) {
-        setIsVaultUnlocked(true);
-        soundFx.playDeploySuccess();
-        return true;
+        isCorrect = true;
       }
     }
 
+    if (isCorrect) {
+      setIsVaultUnlocked(true);
+      setFailedAttempts(0);
+      setBannedUntil(null);
+      localStorage.removeItem('000_vault_failed_count');
+      localStorage.removeItem('000_vault_banned_until');
+      soundFx.playDeploySuccess();
+      return { success: true };
+    }
+
+    // Incorrect attempt
     soundFx.playAlarm();
-    return false;
+    const newCount = failedAttempts + 1;
+    setFailedAttempts(newCount);
+    localStorage.setItem('000_vault_failed_count', String(newCount));
+
+    if (newCount >= 2) {
+      const lockUntil = Date.now() + 15 * 60 * 1000; // 15 minutes ban
+      setBannedUntil(lockUntil);
+      localStorage.setItem('000_vault_banned_until', String(lockUntil));
+      return { success: false, error: 'BANNED', bannedUntil: lockUntil, attemptsLeft: 0 };
+    }
+
+    return { success: false, error: 'INVALID', attemptsLeft: 1 };
   };
 
   const lockVault = () => {
@@ -129,6 +172,8 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         revealedSecrets,
         animatingSecrets,
         copiedKeyId,
+        bannedUntil,
+        failedAttempts,
         handleToggleReveal,
         handleCopySecret,
         generateRandomKey,
