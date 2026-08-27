@@ -45,7 +45,7 @@ export const AccessAuditLedgerWidget: React.FC = () => {
   };
 
   const successCount = records.filter(r => r.status === 'SUCCESS').length;
-  const failedCount = records.filter(r => r.status === 'FAILED_PASSWORD' || r.status === 'TIMEOUT_15S').length;
+  const failedCount = records.filter(r => r.status === 'FAILED_PASSWORD').length;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', height: '100%' }}>
@@ -331,7 +331,7 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
           <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--red)', fontFamily: 'monospace', marginTop: '2px' }}>{failedCount}</div>
         </div>
         <div style={{ background: '#040714', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '8.5px', color: 'var(--cyan)' }}>ТАЙМАУТЫ (15 СЕК)</div>
+          <div style={{ fontSize: '8.5px', color: 'var(--cyan)' }}>ВРЕМЯ И СТЕКЛО</div>
           <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--cyan)', fontFamily: 'monospace', marginTop: '2px' }}>{timeoutCount}</div>
         </div>
         <div style={{ background: '#040714', padding: '8px', borderRadius: '6px', border: '1px solid var(--border)' }}>
@@ -348,7 +348,7 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
             { id: 'ALL', label: `Все (${records.length})` },
             { id: 'SUCCESS', label: `👑 Папа Дома (${successCount})` },
             { id: 'FAILED_PASSWORD', label: `❌ Ошибки (${failedCount})` },
-            { id: 'TIMEOUT_15S', label: `⏳ Таймауты 15с (${timeoutCount})` },
+            { id: 'TIMEOUT_15S', label: `⏳ Время и стекло (${timeoutCount})` },
             { id: 'LOCKOUT_BAN', label: `⛔ Баны (${banCount})` },
             { id: 'SESSION_EXPIRED', label: `⌛ Истечение 30м (${expiredCount})` }
           ].map(f => (
@@ -453,7 +453,7 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
                             : isBan
                             ? 'red'
                             : isTimeout
-                            ? 'yellow'
+                            ? 'cyan'
                             : isExpired
                             ? 'purple'
                             : 'red'
@@ -465,7 +465,7 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
                           : isBan
                           ? '⛔ БАН 15 МИН'
                           : isTimeout
-                          ? '⏳ ТАЙМАУТ 15с'
+                          ? '⏳ ВРЕМЯ И СТЕКЛО'
                           : isExpired
                           ? '⌛ ИСТЕКЛА (30М)'
                           : rec.status === 'MANUAL_LOCK'

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, ShieldAlert, KeyRound, Timer, ShieldCheck, AlertTriangle, Delete, RotateCcw, Crown, Sparkles } from 'lucide-react';
+import { Lock, ShieldAlert, KeyRound, Timer, ShieldCheck, AlertTriangle, Delete, RotateCcw, Crown, Sparkles, Hourglass, RefreshCw } from 'lucide-react';
 import { soundFx } from '../services/soundFx';
 import { UnlockResult, useVault, checkMasterPassword } from '../context/VaultContext';
+import { recordAuthEvent } from '../services/authAuditLog';
 
 interface MasterPasswordModalProps {
   isOpen: boolean;
@@ -16,12 +17,13 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   onUnlock,
   isFirstSetup = false
 }) => {
-  const { isVaultUnlocked, bannedUntil, recordTimeoutFailure } = useVault();
+  const { isVaultUnlocked, bannedUntil } = useVault();
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [banRemainingSecs, setBanRemainingSecs] = useState<number>(0);
   const [timeoutMs, setTimeoutMs] = useState<number>(15000); // 15.0s timeout
   const [isPapaHomeCelebration, setIsPapaHomeCelebration] = useState(false);
+  const [isTimeOutOverlay, setIsTimeOutOverlay] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const isBanned = banRemainingSecs > 0;
@@ -45,10 +47,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     return () => clearInterval(interval);
   }, [bannedUntil]);
 
-  // 2. 15-Second Entry Timeout Timer (resets on input or attempt)
+  // 2. 15-Second Entry Timeout Timer (resets on input, try-again, or attempt)
   useEffect(() => {
-    if (!isOpen || isVaultUnlocked || isBanned || isPapaHomeCelebration) {
-      setTimeoutMs(15000);
+    if (!isOpen || isVaultUnlocked || isBanned || isPapaHomeCelebration || isTimeOutOverlay) {
       return;
     }
 
@@ -60,27 +61,47 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
 
       if (left <= 0) {
         clearInterval(interval);
-        // Timeout expired: count as 1 failed attempt
-        soundFx.playAlarm();
-        const res = recordTimeoutFailure();
-        if (res.error === 'BANNED' || (res.bannedUntil && res.bannedUntil > Date.now())) {
-          setError('⛔ Время вышло (15с)! Сработала блокировка на 15 минут из-за 2 ошибок.');
-        } else {
-          setError('⚠️ Время вышло (15с)! Зафиксирована 1 ошибка. Осталась 1 попытка.');
-          setTimeoutMs(15000); // Reset timer for second attempt
-        }
+        // Timeout expired: show "Время и стекло ))" overlay — DOES NOT count as error!
+        soundFx.playClick(600);
+        setPassword('');
+        setError('');
+        setIsTimeOutOverlay(true);
+        recordAuthEvent({
+          status: 'TIMEOUT_15S',
+          mode: 'STANDARD',
+          details: '⏳ «Время и стекло ))» — таймаут 15с. Ошибок не начислено, попытки сохранены.'
+        });
       }
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isOpen, isVaultUnlocked, isBanned, isPapaHomeCelebration, recordTimeoutFailure]);
+  }, [isOpen, isVaultUnlocked, isBanned, isPapaHomeCelebration, isTimeOutOverlay]);
 
-  // Focus input when opened
+  // Focus input when opened and not overlayed
   useEffect(() => {
-    if (isOpen && !isBanned) {
+    if (isOpen && !isBanned && !isTimeOutOverlay) {
       inputRef.current?.focus();
     }
-  }, [isOpen, isBanned]);
+  }, [isOpen, isBanned, isTimeOutOverlay]);
+
+  // Reset overlay when modal closes or unlocks
+  useEffect(() => {
+    if (!isOpen || isVaultUnlocked) {
+      setIsTimeOutOverlay(false);
+      setTimeoutMs(15000);
+    }
+  }, [isOpen, isVaultUnlocked]);
+
+  const handleTryAgain = () => {
+    soundFx.playClick(900);
+    setIsTimeOutOverlay(false);
+    setTimeoutMs(15000);
+    setPassword('');
+    setError('');
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 60);
+  };
 
   if (!isOpen && isVaultUnlocked) return null;
 
@@ -205,11 +226,15 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             ? '2px solid rgba(248, 113, 113, 0.8)'
             : isPapaHomeCelebration
             ? '2px solid var(--yellow)'
+            : isTimeOutOverlay
+            ? '2px solid var(--cyan)'
             : '2px solid rgba(56, 189, 248, 0.6)',
           boxShadow: isBanned
             ? '0 0 60px rgba(248, 113, 113, 0.35), inset 0 0 30px rgba(0, 0, 0, 0.9)'
             : isPapaHomeCelebration
             ? '0 0 70px rgba(250, 204, 21, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.9)'
+            : isTimeOutOverlay
+            ? '0 0 60px rgba(56, 189, 248, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.9)'
             : '0 0 60px rgba(56, 189, 248, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.9)'
         }}
       >
@@ -225,6 +250,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 ? 'radial-gradient(circle, #450a0a 0%, #1f0404 100%)'
                 : isPapaHomeCelebration
                 ? 'radial-gradient(circle, #713f12 0%, #1c1917 100%)'
+                : isTimeOutOverlay
+                ? 'radial-gradient(circle, #0e3a5a 0%, #031424 100%)'
                 : 'radial-gradient(circle, #0c2340 0%, #061120 100%)',
               border: isBanned ? '2px solid var(--red)' : isPapaHomeCelebration ? '2px solid var(--yellow)' : '2px solid var(--cyan)',
               display: 'flex',
@@ -248,6 +275,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               <ShieldAlert style={{ width: '22px', height: '22px', color: 'var(--red)' }} />
             ) : isPapaHomeCelebration ? (
               <Crown style={{ width: '22px', height: '22px', color: 'var(--yellow)' }} />
+            ) : isTimeOutOverlay ? (
+              <Hourglass style={{ width: '22px', height: '22px', color: 'var(--cyan)' }} />
             ) : (
               <Lock style={{ width: '22px', height: '22px', color: 'var(--cyan)' }} />
             )}
@@ -256,10 +285,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '1px', color: '#fff', fontFamily: 'var(--font-heading)' }}>
-                {isBanned ? 'SECURITY LOCKOUT ACTIVE' : isPapaHomeCelebration ? '👑 ПАПА ДОМА' : '000 CYBER SAFE GATE'}
+                {isBanned ? 'SECURITY LOCKOUT ACTIVE' : isPapaHomeCelebration ? '👑 ПАПА ДОМА' : isTimeOutOverlay ? '⏳ ВРЕМЯ И СТЕКЛО ))' : '000 CYBER SAFE GATE'}
               </span>
-              <span className={`pill ${isBanned ? 'red' : isPapaHomeCelebration ? 'yellow' : 'green'}`} style={{ fontSize: '8px' }}>
-                {isBanned ? '● SHUTDOWN' : isPapaHomeCelebration ? '● ДОСТУП РАЗРЕШЕН' : '● ARMORED'}
+              <span className={`pill ${isBanned ? 'red' : isPapaHomeCelebration ? 'yellow' : isTimeOutOverlay ? 'cyan' : 'green'}`} style={{ fontSize: '8px' }}>
+                {isBanned ? '● SHUTDOWN' : isPapaHomeCelebration ? '● ДОСТУП РАЗРЕШЕН' : isTimeOutOverlay ? '● ВРЕМЯ И СТЕКЛО' : '● ARMORED'}
               </span>
             </div>
             <p style={{ fontSize: '9.5px', color: 'var(--fg-dim)', margin: '2px 0 0 0', lineHeight: '1.3' }}>
@@ -267,6 +296,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 ? 'Превышен лимит попыток. Блокировка на 15 минут.'
                 : isPapaHomeCelebration
                 ? 'Режим «ПАПА ДОМА» активирован. Сессия: 30 минут.'
+                : isTimeOutOverlay
+                ? 'Время вышло, но ошибок нет. Нажмите «Попробовать ещё».'
                 : 'Автопринятие при вводе верного кода без нажатия кнопки.'}
             </p>
           </div>
@@ -296,28 +327,138 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           </div>
         )}
 
-        {/* 15-Minute Ban Alert Box */}
-        {isBanned ? (
+        {isTimeOutOverlay ? (
+          /* ВРЕМЯ И СТЕКЛО )) Заглушка */
           <div
             style={{
-              padding: '12px',
-              borderRadius: '10px',
-              background: 'rgba(69, 10, 10, 0.85)',
-              border: '1px solid rgba(248, 113, 113, 0.6)',
+              padding: '24px 16px',
+              borderRadius: '12px',
+              background: 'radial-gradient(circle at 50% 30%, rgba(56, 189, 248, 0.15) 0%, rgba(2, 6, 23, 0.95) 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              boxShadow: '0 0 35px rgba(56, 189, 248, 0.25), inset 0 0 20px rgba(0, 0, 0, 0.8)',
               display: 'flex',
               flexDirection: 'column',
-              gap: '6px'
+              alignItems: 'center',
+              justifyContent: 'center',
+              textAlign: 'center',
+              gap: '14px',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)'
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--red)', fontSize: '11px', fontWeight: 'bold' }}>
-              <ShieldAlert style={{ width: '16px', height: '16px', flexShrink: 0 }} />
-              <span>ACCESS SUSPENDED (2 FAILED ATTEMPTS)</span>
+            <div
+              style={{
+                width: '60px',
+                height: '60px',
+                borderRadius: '50%',
+                background: 'radial-gradient(circle, #0e3a5a 0%, #031424 100%)',
+                border: '2px solid var(--cyan)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 0 25px rgba(56, 189, 248, 0.5)'
+              }}
+            >
+              <Hourglass style={{ width: '30px', height: '30px', color: 'var(--cyan)' }} />
             </div>
-            <div style={{ fontSize: '11px', color: '#fff', fontFamily: 'monospace' }}>
-              Lockout Ban Countdown: <strong style={{ color: 'var(--yellow)', fontSize: '13px', background: '#000', padding: '2px 8px', borderRadius: '4px' }}>{formatBanTime(banRemainingSecs)}</strong>
+
+            <div>
+              <div
+                style={{
+                  fontSize: '20px',
+                  fontWeight: 900,
+                  letterSpacing: '1px',
+                  color: '#fff',
+                  fontFamily: 'var(--font-heading)',
+                  textShadow: '0 0 18px rgba(56, 189, 248, 0.7)'
+                }}
+              >
+                Время и стекло ))
+              </div>
+              <p
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--fg-dim)',
+                  margin: '8px 0 0 0',
+                  lineHeight: '1.45'
+                }}
+              >
+                Обратный отсчёт (15 сек) завершён.<br />
+                Время истекло, но это <strong style={{ color: 'var(--green)' }}>не считается за ошибку</strong> — попытки сохранены!
+              </p>
             </div>
+
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '5px 12px',
+                borderRadius: '20px',
+                background: 'rgba(34, 197, 94, 0.15)',
+                border: '1px solid rgba(34, 197, 94, 0.4)',
+                color: 'var(--green)',
+                fontSize: '9.5px',
+                fontFamily: 'monospace',
+                fontWeight: 'bold'
+              }}
+            >
+              <ShieldCheck style={{ width: '13px', height: '13px' }} />
+              <span>0 ОШИБОК · ПОПЫТКИ НЕ СГОРЕЛИ</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleTryAgain}
+              className="btn-accent"
+              style={{
+                width: '100%',
+                padding: '11px 0',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                letterSpacing: '1px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                borderRadius: '8px',
+                background: 'linear-gradient(90deg, #0284c7, #38bdf8)',
+                color: '#000',
+                border: 'none',
+                boxShadow: '0 0 25px rgba(56, 189, 248, 0.5)'
+              }}
+              onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.97)'; }}
+              onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+            >
+              <RefreshCw style={{ width: '15px', height: '15px' }} />
+              <span>ПОПРОБОВАТЬ ЕЩЁ</span>
+            </button>
           </div>
         ) : (
+          <>
+            {/* 15-Minute Ban Alert Box */}
+            {isBanned ? (
+              <div
+                style={{
+                  padding: '12px',
+                  borderRadius: '10px',
+                  background: 'rgba(69, 10, 10, 0.85)',
+                  border: '1px solid rgba(248, 113, 113, 0.6)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--red)', fontSize: '11px', fontWeight: 'bold' }}>
+                  <ShieldAlert style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+                  <span>ACCESS SUSPENDED (2 FAILED ATTEMPTS)</span>
+                </div>
+                <div style={{ fontSize: '11px', color: '#fff', fontFamily: 'monospace' }}>
+                  Lockout Ban Countdown: <strong style={{ color: 'var(--yellow)', fontSize: '13px', background: '#000', padding: '2px 8px', borderRadius: '4px' }}>{formatBanTime(banRemainingSecs)}</strong>
+                </div>
+              </div>
+            ) : (
           /* 15-Second Session Progress Bar */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8.5px', fontFamily: 'monospace' }}>
@@ -542,6 +683,8 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             <span style={{ color: 'var(--cyan)' }}>РЕЖИМ «ПАПА ДОМА»</span>
           </div>
         </form>
+        </>
+        )}
       </div>
     </div>
   );
