@@ -416,7 +416,8 @@ function formatUptime(seconds) {
 
 // ─── Router ───────────────────────────────────────────────────────────────────
 const server = http.createServer(async (req, res) => {
-  const url = new URL(req.url, `http://${req.headers.host}`);
+  const hostHeader = req.headers.host || '127.0.0.1:4000';
+  const url = new URL(req.url, `http://${hostHeader}`);
   const path = url.pathname.replace(/\/$/, '') || '/';
 
   // CORS preflight
