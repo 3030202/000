@@ -89,10 +89,10 @@ export const MobileBottomNav: React.FC = () => {
       <button
         onClick={handleToggleVault}
         className={`mobile-nav-btn ${isVaultUnlocked ? 'unlocked' : 'locked'}`}
-        title="Zero-Knowledge Vault Gate"
+        title="Zero-Knowledge Vault Gate (Режим «ПАПА ДОМА»)"
       >
-        <span className="mobile-nav-icon">{isVaultUnlocked ? '🔓' : '🔒'}</span>
-        <span className="mobile-nav-label">{isVaultUnlocked ? 'UNLOCKED' : 'VAULT'}</span>
+        <span className="mobile-nav-icon">{isVaultUnlocked ? '👑' : '🔒'}</span>
+        <span className="mobile-nav-label">{isVaultUnlocked ? 'ПАПА ДОМА' : 'СЕЙФ'}</span>
       </button>
     </nav>
   );

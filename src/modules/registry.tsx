@@ -9,6 +9,7 @@ import { HealthMatrixWidget } from './groupD/HealthWidgets';
 import { HealthExpandedWorkbench } from './groupD/HealthExpandedWorkbench';
 import { CliTerminalWidget, CliExpandedWorkbench } from './groupE/CliTerminalWidgets';
 import { AuditLogWidget } from './groupF/AuditWidgets';
+import { AccessAuditLedgerWidget, AccessAuditLedgerWorkbench } from './groupF/AccessAuditWidgets';
 import { AsciiTopologyWidget } from './groupG/TopologyWidgets';
 import { InteractiveCyberTopologyWidget, InteractiveCyberTopologyWorkbench } from './groupG/TopologyCanvasWidgets';
 import { ResourceUsageWidget, ResourceUsageExpandedWorkbench } from './groupG/ResourceUsageWidgets';
@@ -29,6 +30,7 @@ export const standardWidgetRegistry: Record<string, React.FC> = {
   E2: CloudflareOpsWidget,
   E9: AiCopilotWidget,
   F1: AuditLogWidget,
+  F3: AccessAuditLedgerWidget,
   G1: InteractiveCyberTopologyWidget,
   G2: AsciiTopologyWidget,
   G3: ResourceUsageWidget,
@@ -44,6 +46,7 @@ export const expandedWorkbenchRegistry: Record<string, React.FC> = {
   E1: CliExpandedWorkbench,
   E2: CloudflareExpandedWorkbench,
   E9: AiCopilotExpandedWorkbench,
+  F3: AccessAuditLedgerWorkbench,
   G1: InteractiveCyberTopologyWorkbench,
   G3: ResourceUsageExpandedWorkbench,
   H2: NotepadExpandedWorkbench,

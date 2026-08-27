@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Lock, ShieldAlert, KeyRound, Timer, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Lock, ShieldAlert, KeyRound, Timer, ShieldCheck, AlertTriangle, Delete, RotateCcw, Crown, Sparkles } from 'lucide-react';
 import { soundFx } from '../services/soundFx';
-import { UnlockResult, useVault } from '../context/VaultContext';
+import { UnlockResult, useVault, checkMasterPassword } from '../context/VaultContext';
 
 interface MasterPasswordModalProps {
   isOpen: boolean;
@@ -21,6 +21,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const [error, setError] = useState('');
   const [banRemainingSecs, setBanRemainingSecs] = useState<number>(0);
   const [timeoutMs, setTimeoutMs] = useState<number>(15000); // 15.0s timeout
+  const [isPapaHomeCelebration, setIsPapaHomeCelebration] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const isBanned = banRemainingSecs > 0;
@@ -46,7 +47,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
 
   // 2. 15-Second Entry Timeout Timer (resets on input or attempt)
   useEffect(() => {
-    if (!isOpen || isVaultUnlocked || isBanned) {
+    if (!isOpen || isVaultUnlocked || isBanned || isPapaHomeCelebration) {
       setTimeoutMs(15000);
       return;
     }
@@ -72,7 +73,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
     }, 100);
 
     return () => clearInterval(interval);
-  }, [isOpen, isVaultUnlocked, isBanned, recordTimeoutFailure]);
+  }, [isOpen, isVaultUnlocked, isBanned, isPapaHomeCelebration, recordTimeoutFailure]);
 
   // Focus input when opened
   useEffect(() => {
@@ -92,20 +93,78 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
   const timeoutSeconds = (timeoutMs / 1000).toFixed(1);
   const timeoutPercent = Math.max(0, Math.min(100, (timeoutMs / 15000) * 100));
 
+  // Core handler: tests for instant auto-unlock ("ПАПА ДОМА")
+  const processInput = (newVal: string) => {
+    if (isBanned || isPapaHomeCelebration) return;
+
+    soundFx.playClick(1000);
+    setPassword(newVal);
+    setError('');
+
+    // Instant match check: if correct, auto-accept immediately without any button press!
+    if (checkMasterPassword(newVal)) {
+      soundFx.playDeploySuccess();
+      setIsPapaHomeCelebration(true);
+      onUnlock(newVal);
+
+      setTimeout(() => {
+        setIsPapaHomeCelebration(false);
+        setPassword('');
+        setError('');
+        onClose();
+      }, 350);
+      return;
+    }
+
+    // If typed 4+ characters and doesn't match 'admin000' and length is at least 4
+    if (newVal.length >= 4 && newVal !== 'admin000'.slice(0, newVal.length)) {
+      // Check full validity
+      const res = onUnlock(newVal);
+      if (!res.success) {
+        soundFx.playAlarm();
+        setTimeoutMs(15000);
+        setPassword('');
+        if (res.error === 'BANNED' || (res.bannedUntil && res.bannedUntil > Date.now())) {
+          setError('⛔ Доступ заблокирован на 15 минут из-за 2 неверных попыток.');
+        } else if (res.attemptsLeft !== undefined) {
+          setError(`⚠️ Неверный код! Осталась ${res.attemptsLeft} попытка до блокировки на 15 минут.`);
+        }
+      }
+    }
+  };
+
+  const handleNumpadDigit = (digit: string) => {
+    processInput(password + digit);
+  };
+
+  const handleNumpadBackspace = () => {
+    soundFx.playClick(700);
+    processInput(password.slice(0, -1));
+  };
+
+  const handleNumpadClear = () => {
+    soundFx.playClick(500);
+    processInput('');
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isBanned || !password) return;
+    if (isBanned || !password || isPapaHomeCelebration) return;
 
     const res = onUnlock(password);
     if (res.success) {
-      soundFx.playUnlock();
-      setPassword('');
-      setError('');
-      onClose();
+      soundFx.playDeploySuccess();
+      setIsPapaHomeCelebration(true);
+      setTimeout(() => {
+        setIsPapaHomeCelebration(false);
+        setPassword('');
+        setError('');
+        onClose();
+      }, 300);
     } else {
       soundFx.playAlarm();
       setPassword('');
-      setTimeoutMs(15000); // Reset 15s timer for the next attempt
+      setTimeoutMs(15000);
       if (res.error === 'BANNED' || (res.bannedUntil && res.bannedUntil > Date.now())) {
         setError('⛔ Доступ заблокирован на 15 минут из-за 2 неверных попыток.');
       } else if (res.attemptsLeft !== undefined) {
@@ -125,10 +184,10 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '16px',
-        backgroundColor: 'rgba(2, 4, 8, 0.88)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)'
+        padding: '12px',
+        backgroundColor: 'rgba(2, 4, 8, 0.92)',
+        backdropFilter: 'blur(25px)',
+        WebkitBackdropFilter: 'blur(25px)'
       }}
     >
       {/* Heavy Cyber Armored Safe Card */}
@@ -136,34 +195,42 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
         className="vault-safe-door"
         style={{
           width: '100%',
-          maxWidth: '460px',
+          maxWidth: '420px',
           borderRadius: '16px',
-          padding: '24px',
+          padding: '20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '18px',
-          border: isBanned ? '2px solid rgba(248, 113, 113, 0.8)' : '2px solid rgba(56, 189, 248, 0.5)',
+          gap: '14px',
+          border: isBanned
+            ? '2px solid rgba(248, 113, 113, 0.8)'
+            : isPapaHomeCelebration
+            ? '2px solid var(--yellow)'
+            : '2px solid rgba(56, 189, 248, 0.6)',
           boxShadow: isBanned
-            ? '0 0 60px rgba(248, 113, 113, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.9)'
-            : '0 0 60px rgba(56, 189, 248, 0.25), inset 0 0 30px rgba(0, 0, 0, 0.9)'
+            ? '0 0 60px rgba(248, 113, 113, 0.35), inset 0 0 30px rgba(0, 0, 0, 0.9)'
+            : isPapaHomeCelebration
+            ? '0 0 70px rgba(250, 204, 21, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.9)'
+            : '0 0 60px rgba(56, 189, 248, 0.3), inset 0 0 30px rgba(0, 0, 0, 0.9)'
         }}
       >
         {/* Safe Header & Dial Indicator */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
               position: 'relative',
-              width: '52px',
-              height: '52px',
+              width: '46px',
+              height: '46px',
               borderRadius: '50%',
               background: isBanned
                 ? 'radial-gradient(circle, #450a0a 0%, #1f0404 100%)'
+                : isPapaHomeCelebration
+                ? 'radial-gradient(circle, #713f12 0%, #1c1917 100%)'
                 : 'radial-gradient(circle, #0c2340 0%, #061120 100%)',
-              border: isBanned ? '2px solid var(--red)' : '2px solid var(--cyan)',
+              border: isBanned ? '2px solid var(--red)' : isPapaHomeCelebration ? '2px solid var(--yellow)' : '2px solid var(--cyan)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: isBanned ? '0 0 15px rgba(248, 113, 113, 0.5)' : '0 0 15px rgba(56, 189, 248, 0.4)'
+              boxShadow: isBanned ? '0 0 15px rgba(248, 113, 113, 0.5)' : isPapaHomeCelebration ? '0 0 20px rgba(250, 204, 21, 0.6)' : '0 0 15px rgba(56, 189, 248, 0.4)'
             }}
           >
             {/* Rotating dial ring */}
@@ -173,33 +240,61 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                 position: 'absolute',
                 inset: '-4px',
                 borderRadius: '50%',
-                border: '1px dashed ' + (isBanned ? 'var(--red)' : 'var(--cyan)'),
-                opacity: 0.6
+                border: '1px dashed ' + (isBanned ? 'var(--red)' : isPapaHomeCelebration ? 'var(--yellow)' : 'var(--cyan)'),
+                opacity: 0.7
               }}
             />
             {isBanned ? (
-              <ShieldAlert style={{ width: '24px', height: '24px', color: 'var(--red)' }} />
+              <ShieldAlert style={{ width: '22px', height: '22px', color: 'var(--red)' }} />
+            ) : isPapaHomeCelebration ? (
+              <Crown style={{ width: '22px', height: '22px', color: 'var(--yellow)' }} />
             ) : (
-              <Lock style={{ width: '24px', height: '24px', color: 'var(--cyan)' }} />
+              <Lock style={{ width: '22px', height: '22px', color: 'var(--cyan)' }} />
             )}
           </div>
 
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '12px', fontWeight: 900, letterSpacing: '1px', color: '#fff', fontFamily: 'var(--font-heading)' }}>
-                {isBanned ? 'SECURITY LOCKOUT ACTIVE' : '000 CYBER SAFE GATE'}
+              <span style={{ fontSize: '11px', fontWeight: 900, letterSpacing: '1px', color: '#fff', fontFamily: 'var(--font-heading)' }}>
+                {isBanned ? 'SECURITY LOCKOUT ACTIVE' : isPapaHomeCelebration ? '👑 ПАПА ДОМА' : '000 CYBER SAFE GATE'}
               </span>
-              <span className={`pill ${isBanned ? 'red' : 'green'}`} style={{ fontSize: '8px' }}>
-                {isBanned ? '● SHUTDOWN' : '● ARMORED'}
+              <span className={`pill ${isBanned ? 'red' : isPapaHomeCelebration ? 'yellow' : 'green'}`} style={{ fontSize: '8px' }}>
+                {isBanned ? '● SHUTDOWN' : isPapaHomeCelebration ? '● ДОСТУП РАЗРЕШЕН' : '● ARMORED'}
               </span>
             </div>
-            <p style={{ fontSize: '10px', color: 'var(--fg-dim)', margin: '3px 0 0 0', lineHeight: '1.3' }}>
+            <p style={{ fontSize: '9.5px', color: 'var(--fg-dim)', margin: '2px 0 0 0', lineHeight: '1.3' }}>
               {isBanned
-                ? 'Exceeded maximum allowable failed attempts. Access denied.'
-                : 'Zero-Knowledge AES-GCM 256 master gateway authentication.'}
+                ? 'Превышен лимит попыток. Блокировка на 15 минут.'
+                : isPapaHomeCelebration
+                ? 'Режим «ПАПА ДОМА» активирован. Сессия: 30 минут.'
+                : 'Автопринятие при вводе верного кода без нажатия кнопки.'}
             </p>
           </div>
         </div>
+
+        {/* ПАПА ДОМА Celebration Banner */}
+        {isPapaHomeCelebration && (
+          <div
+            style={{
+              padding: '10px',
+              borderRadius: '8px',
+              background: 'linear-gradient(90deg, rgba(250, 204, 21, 0.2), rgba(56, 189, 248, 0.2))',
+              border: '1px solid var(--yellow)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              color: 'var(--yellow)',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              fontFamily: 'monospace',
+              animation: 'pulse 1s infinite'
+            }}
+          >
+            <Sparkles style={{ width: '16px', height: '16px' }} />
+            <span>👑 РЕЖИМ «ПАПА ДОМА» АКТИВИРОВАН!</span>
+          </div>
+        )}
 
         {/* 15-Minute Ban Alert Box */}
         {isBanned ? (
@@ -218,17 +313,17 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               <ShieldAlert style={{ width: '16px', height: '16px', flexShrink: 0 }} />
               <span>ACCESS SUSPENDED (2 FAILED ATTEMPTS)</span>
             </div>
-            <div style={{ fontSize: '12px', color: '#fff', fontFamily: 'monospace' }}>
-              Lockout Ban Countdown: <strong style={{ color: 'var(--yellow)', fontSize: '14px', background: '#000', padding: '2px 8px', borderRadius: '4px' }}>{formatBanTime(banRemainingSecs)}</strong>
+            <div style={{ fontSize: '11px', color: '#fff', fontFamily: 'monospace' }}>
+              Lockout Ban Countdown: <strong style={{ color: 'var(--yellow)', fontSize: '13px', background: '#000', padding: '2px 8px', borderRadius: '4px' }}>{formatBanTime(banRemainingSecs)}</strong>
             </div>
           </div>
         ) : (
           /* 15-Second Session Progress Bar */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', fontFamily: 'monospace' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '8.5px', fontFamily: 'monospace' }}>
               <span style={{ color: 'var(--fg-dim)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <Timer style={{ width: '12px', height: '12px', color: timeoutMs < 4000 ? 'var(--red)' : 'var(--yellow)' }} />
-                SESSION ENTRY TIMEOUT:
+                <Timer style={{ width: '11px', height: '11px', color: timeoutMs < 4000 ? 'var(--red)' : 'var(--yellow)' }} />
+                ТАЙМАУТ ВВОДА:
               </span>
               <span
                 style={{
@@ -236,7 +331,7 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
                   color: timeoutMs < 4000 ? 'var(--red)' : timeoutMs < 8000 ? 'var(--yellow)' : 'var(--cyan)'
                 }}
               >
-                {timeoutSeconds}s REMAINING
+                {timeoutSeconds}с
               </span>
             </div>
 
@@ -244,9 +339,9 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
             <div
               style={{
                 width: '100%',
-                height: '5px',
+                height: '4px',
                 background: '#04070e',
-                borderRadius: '3px',
+                borderRadius: '2px',
                 border: '1px solid var(--border)',
                 overflow: 'hidden'
               }}
@@ -267,15 +362,15 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           </div>
         )}
 
-        {/* Form Input */}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        {/* Code Input Display */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <label style={{ fontSize: '9.5px', fontFamily: 'monospace', color: 'var(--fg-muted)' }}>
-                MASTER PASSPHRASE
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <label style={{ fontSize: '9px', fontFamily: 'monospace', color: 'var(--fg-muted)' }}>
+                КОД ДОСТУПА («ПАПА ДОМА»)
               </label>
-              <span style={{ fontSize: '8.5px', color: 'var(--fg-dim)' }}>
-                {isBanned ? '0 ATTEMPTS LEFT' : 'MAX 2 ATTEMPTS (15 MIN BAN)'}
+              <span style={{ fontSize: '8px', color: 'var(--fg-dim)' }}>
+                {isBanned ? '0 ПОПЫТОК' : 'АВТОВХОД ПРИ СОВПАДЕНИИ'}
               </span>
             </div>
 
@@ -283,24 +378,21 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
               <input
                 ref={inputRef}
                 type="password"
-                required
-                disabled={isBanned}
+                disabled={isBanned || isPapaHomeCelebration}
                 value={password}
-                onChange={(e) => {
-                  setPassword(e.target.value);
-                  setError('');
-                }}
-                placeholder={isBanned ? 'System Locked...' : '••••••••'}
+                onChange={(e) => processInput(e.target.value)}
+                placeholder={isBanned ? 'Заблокировано...' : '••••'}
                 style={{
                   width: '100%',
-                  padding: '10px 12px',
+                  padding: '8px 10px',
                   background: '#040710',
-                  border: isBanned ? '1px solid #7f1d1d' : '1px solid var(--border-focus)',
-                  borderRadius: '8px',
-                  color: '#fff',
-                  fontSize: '14px',
+                  border: isBanned ? '1px solid #7f1d1d' : isPapaHomeCelebration ? '1px solid var(--yellow)' : '1px solid var(--border-focus)',
+                  borderRadius: '6px',
+                  color: isPapaHomeCelebration ? 'var(--yellow)' : '#fff',
+                  fontSize: '15px',
                   fontFamily: 'monospace',
-                  letterSpacing: '3px',
+                  letterSpacing: '5px',
+                  textAlign: 'center',
                   outline: 'none',
                   boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.6)'
                 }}
@@ -312,61 +404,143 @@ export const MasterPasswordModal: React.FC<MasterPasswordModalProps> = ({
           {!isBanned && error && (
             <div
               style={{
-                padding: '8px 10px',
+                padding: '6px 8px',
                 background: 'rgba(69, 10, 10, 0.7)',
                 border: '1px solid rgba(248, 113, 113, 0.5)',
-                borderRadius: '8px',
+                borderRadius: '6px',
                 color: 'var(--red)',
-                fontSize: '9.5px',
+                fontSize: '9px',
                 fontFamily: 'monospace',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px'
+                gap: '5px'
               }}
             >
-              <AlertTriangle style={{ width: '14px', height: '14px', flexShrink: 0 }} />
+              <AlertTriangle style={{ width: '13px', height: '13px', flexShrink: 0 }} />
               <span>{error}</span>
             </div>
           )}
 
-          {/* Footer Security Badges */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '8.5px', color: 'var(--fg-muted)', fontFamily: 'monospace' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <ShieldCheck style={{ width: '10px', height: '10px', color: 'var(--cyan)' }} />
-              PBKDF2 100K • AES-256
-            </span>
-            <span style={{ color: 'var(--cyan)' }}>Zero-Knowledge Core</span>
-          </div>
-
-          {/* Action Button */}
-          <button
-            type="submit"
-            disabled={isBanned}
-            className="btn-accent"
+          {/* CYBER DIGITAL NUMPAD */}
+          <div
             style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '11px',
-              fontWeight: 'bold',
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, 1fr)',
+              gap: '6px',
+              background: '#02040a',
+              padding: '8px',
               borderRadius: '8px',
-              background: isBanned ? '#1e293b' : undefined,
-              color: isBanned ? '#64748b' : undefined,
-              cursor: isBanned ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px'
+              border: '1px solid var(--border)'
             }}
           >
-            {isBanned ? (
-              <span>⛔ LOCKED ({formatBanTime(banRemainingSecs)})</span>
-            ) : (
-              <>
-                <KeyRound style={{ width: '14px', height: '14px' }} />
-                <span>UNLOCK MISSION CONTROL SAFE</span>
-              </>
-            )}
-          </button>
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(digit => (
+              <button
+                key={digit}
+                type="button"
+                disabled={isBanned || isPapaHomeCelebration}
+                onClick={() => handleNumpadDigit(digit)}
+                style={{
+                  padding: '10px 0',
+                  fontSize: '15px',
+                  fontWeight: 'bold',
+                  fontFamily: 'monospace',
+                  background: '#060a18',
+                  border: '1px solid rgba(56, 189, 248, 0.25)',
+                  borderRadius: '6px',
+                  color: '#fff',
+                  cursor: isBanned ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.1s ease',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.4)'
+                }}
+                onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.94)'; }}
+                onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+              >
+                {digit}
+              </button>
+            ))}
+
+            {/* Backspace Button */}
+            <button
+              type="button"
+              disabled={isBanned || isPapaHomeCelebration || !password}
+              onClick={handleNumpadBackspace}
+              style={{
+                padding: '10px 0',
+                fontSize: '12px',
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                background: '#0a0d1a',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '6px',
+                color: 'var(--red)',
+                cursor: isBanned ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title="Delete last digit"
+            >
+              <Delete style={{ width: '15px', height: '15px' }} />
+            </button>
+
+            {/* 0 Button */}
+            <button
+              type="button"
+              disabled={isBanned || isPapaHomeCelebration}
+              onClick={() => handleNumpadDigit('0')}
+              style={{
+                padding: '10px 0',
+                fontSize: '15px',
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                background: '#060a18',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '6px',
+                color: '#fff',
+                cursor: isBanned ? 'not-allowed' : 'pointer'
+              }}
+              onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(0.94)'; }}
+              onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+            >
+              0
+            </button>
+
+            {/* Clear Button */}
+            <button
+              type="button"
+              disabled={isBanned || isPapaHomeCelebration || !password}
+              onClick={handleNumpadClear}
+              style={{
+                padding: '10px 0',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                fontFamily: 'monospace',
+                background: '#0a0d1a',
+                border: '1px solid rgba(250, 204, 21, 0.3)',
+                borderRadius: '6px',
+                color: 'var(--yellow)',
+                cursor: isBanned ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '2px'
+              }}
+              title="Clear input"
+            >
+              <RotateCcw style={{ width: '13px', height: '13px' }} />
+              <span>C</span>
+            </button>
+          </div>
+
+          {/* Footer Security Badges & Session Duration Notice */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '8px', color: 'var(--fg-muted)', fontFamily: 'monospace' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <ShieldCheck style={{ width: '10px', height: '10px', color: 'var(--cyan)' }} />
+              30 МИНУТ СЕССИЯ
+            </span>
+            <span style={{ color: 'var(--cyan)' }}>РЕЖИМ «ПАПА ДОМА»</span>
+          </div>
         </form>
       </div>
     </div>

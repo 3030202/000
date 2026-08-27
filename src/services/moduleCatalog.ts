@@ -80,7 +80,7 @@ export const ALL_MODULES: ModuleDefinition[] = [
   // Group F
   { id: 'F1', code: 'F1', name: 'System Audit Log', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Лог-поток', description: 'Журнал всех действий и операций в системе', defaultActive: true },
   { id: 'F2', code: 'F2', name: 'DEFCON Defense Control', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Переключатель', description: 'Уровни готовности DEFCON 1-5 и режим локдауна' },
-  { id: 'F3', code: 'F3', name: 'Access Audit Ledger', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Таблица', description: 'Кто и когда обращался к Vault и API' },
+  { id: 'F3', code: 'F3', name: 'Access Audit Ledger & "Папа Дома"', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Таблица', description: 'Журнал попыток входа, режим «ПАПА ДОМА», 30-мин сессия и экспорт JSON', defaultActive: true },
   { id: 'F4', code: 'F4', name: 'Active Sessions Manager', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Список', description: 'Браузерные сессии и кнопка Kill Session' },
   { id: 'F5', code: 'F5', name: 'Security Score Matrix', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Метрика', description: 'Оценка надежности ключей и уязвимостей' },
   { id: 'F6', code: 'F6', name: 'IP Allowlist Config', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Таблица', description: 'Список доверенных IP-адресов' },

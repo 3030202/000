@@ -22,7 +22,7 @@ export const Header: React.FC = () => {
     setIsPasswordModalOpen 
   } = useDashboard();
 
-  const { isVaultUnlocked, lockVault } = useVault();
+  const { isVaultUnlocked, lockVault, sessionRemainingSecs } = useVault();
   const { addLog } = useTools();
   const { timeUtc } = useSystemClock();
 
@@ -107,12 +107,26 @@ export const Header: React.FC = () => {
           
           <div className="hide-on-mobile" style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             {isVaultUnlocked ? (
-              <button onClick={() => { soundFx.playLock(); lockVault(); }} style={{ color: 'var(--yellow)', borderColor: 'var(--yellow)' }}>
-                [VAULT: UNLOCKED]
+              <button
+                onClick={() => { soundFx.playLock(); lockVault('Ручная блокировка из шапки'); }}
+                style={{
+                  color: 'var(--yellow)',
+                  borderColor: 'var(--yellow)',
+                  background: 'rgba(250, 204, 21, 0.1)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+                title="Режим «ПАПА ДОМА». Кликните для блокировки."
+              >
+                <span>👑 [ПАПА ДОМА: {Math.floor(sessionRemainingSecs / 60)}:{String(sessionRemainingSecs % 60).padStart(2, '0')}]</span>
               </button>
             ) : (
-              <button onClick={() => setIsPasswordModalOpen(true)}>
-                [VAULT: LOCKED]
+              <button
+                onClick={() => setIsPasswordModalOpen(true)}
+                style={{ color: 'var(--cyan)', borderColor: 'var(--cyan)' }}
+              >
+                [🔒 СЕЙФ: НАМПАД]
               </button>
             )}
 
