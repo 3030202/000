@@ -16,6 +16,7 @@ import { DockerContainersWidget, DockerExpandedWorkbench } from './groupC/Docker
 import { ScratchpadWidget, NotepadExpandedWorkbench } from './groupH/NotepadWidgets';
 import { TelegramBotWidget, TelegramExpandedWorkbench } from './groupI/TelegramWidgets';
 import { CloudflareOpsWidget, CloudflareExpandedWorkbench } from './groupE/CloudflareWidgets';
+import { AiCopilotWidget, AiCopilotExpandedWorkbench } from './groupE/AiAssistantWidgets';
 
 export const standardWidgetRegistry: Record<string, React.FC> = {
   A1: ProjectTableWidget,
@@ -26,6 +27,7 @@ export const standardWidgetRegistry: Record<string, React.FC> = {
   D1: HealthMatrixWidget,
   E1: CliTerminalWidget,
   E2: CloudflareOpsWidget,
+  E9: AiCopilotWidget,
   F1: AuditLogWidget,
   G1: InteractiveCyberTopologyWidget,
   G2: AsciiTopologyWidget,
@@ -41,6 +43,7 @@ export const expandedWorkbenchRegistry: Record<string, React.FC> = {
   D1: HealthExpandedWorkbench,
   E1: CliExpandedWorkbench,
   E2: CloudflareExpandedWorkbench,
+  E9: AiCopilotExpandedWorkbench,
   G1: InteractiveCyberTopologyWorkbench,
   G3: ResourceUsageExpandedWorkbench,
   H2: NotepadExpandedWorkbench,

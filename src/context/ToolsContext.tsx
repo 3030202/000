@@ -5,6 +5,7 @@ import { ALL_MODULES } from '../services/moduleCatalog';
 import { soundFx } from '../services/soundFx';
 import { telegramApi } from '../services/telegramApi';
 import { cloudflareApi } from '../services/cloudflareApi';
+import { getSavedAiConfig, streamChatCompletion } from '../services/aiAssistantApi';
 import { useDashboard } from './DashboardContext';
 
 export interface ToolsContextType {
@@ -14,8 +15,8 @@ export interface ToolsContextType {
   setNotepadText: React.Dispatch<React.SetStateAction<string>>;
   isBubbleOpen: boolean;
   setIsBubbleOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  bubbleTool: 'ping' | 'gen' | 'hash' | 'b64' | 'json';
-  setBubbleTool: (tool: 'ping' | 'gen' | 'hash' | 'b64' | 'json') => void;
+  bubbleTool: 'ping' | 'gen' | 'hash' | 'b64' | 'json' | 'ai';
+  setBubbleTool: (tool: 'ping' | 'gen' | 'hash' | 'b64' | 'json' | 'ai') => void;
 
   pingInputUrl: string;
   setPingInputUrl: (url: string) => void;
@@ -74,7 +75,7 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   });
 
   const [isBubbleOpen, setIsBubbleOpen] = useState<boolean>(false);
-  const [bubbleTool, setBubbleTool] = useState<'ping' | 'gen' | 'hash' | 'b64' | 'json'>('ping');
+  const [bubbleTool, setBubbleTool] = useState<'ping' | 'gen' | 'hash' | 'b64' | 'json' | 'ai'>('ai');
 
   const [pingInputUrl, setPingInputUrl] = useState('http://000.localhost:3000');
   const [pingOutput, setPingOutput] = useState<string | null>(null);
@@ -187,8 +188,41 @@ export const ToolsProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     switch (main) {
       case 'help':
-        nextHistory.push('status | ping [host] | defcon [1-5] | deploy | telegram send [msg] | cf purge [url] | cf dns | add [A1-I5] | clear');
+        nextHistory.push('status | ping [host] | defcon [1-5] | deploy | ai [prompt] | telegram send [msg] | cf purge [url] | cf dns | add [A1-I5] | clear');
         break;
+      case 'ai':
+      case 'ask': {
+        const query = arg.trim();
+        if (!query) {
+          nextHistory.push('Usage: ai <question / DevOps diagnostic query>');
+          break;
+        }
+
+        const aiCfg = getSavedAiConfig();
+        nextHistory.push(`[000-COPILOT] Querying ${aiCfg.selectedModel} at ${aiCfg.baseUrl}...`);
+        setTermHistory([...nextHistory]);
+
+        let streamAcc = '';
+        await streamChatCompletion({
+          config: aiCfg,
+          messages: [{ id: Date.now().toString(), role: 'user', content: query, timestamp: new Date().toISOString() }],
+          onChunk: (delta) => {
+            streamAcc += delta;
+          },
+          onDone: (full) => {
+            soundFx.playDeploySuccess();
+            setTermHistory(p => [...p, `\n[000-COPILOT RESPONSE]:\n${full || streamAcc}`]);
+            addLog('AI-CLI', `Query answered: "${query.slice(0, 30)}"`, 'success');
+          },
+          onError: (err) => {
+            soundFx.playAlarm();
+            setTermHistory(p => [...p, `[000-COPILOT ERROR]: ${err}`]);
+            addLog('AI-CLI', `Error: ${err}`, 'warn');
+          }
+        });
+        setTermInput('');
+        return;
+      }
       case 'status':
         nextHistory.push('000 Gateway (8ms, OK) | Cloud Run (24ms, OK) | Gemini AI (34ms, OK) — SLA 99.98%');
         break;

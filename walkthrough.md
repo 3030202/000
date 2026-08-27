@@ -39,3 +39,13 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   - Live HTTPS GET `https://03.0x101.lol/`: returned `HTTP/2 200 OK` (via Cloudflare + Caddy edge proxy).
   - Asset verification `https://03.0x101.lol/assets/index-DbI1e6VF.js`: returned `HTTP/2 200 OK` with immutable caching headers.
 
+### [2026-08-27] OpenAI-Compatible AI Mission Copilot (E9)
+- **Scope**: Integration of OpenAI-compatible AI provider (OpenAI, OpenRouter, Groq, Ollama, LM Studio, DeepSeek, Custom URL), automatic `/v1/models` discovery, SSE streaming chat, live telemetry injection into system prompt, and multi-surface UI access.
+- **Components Created & Updated**:
+  1. [`src/services/aiAssistantApi.ts`](file:///home/mx/000/src/services/aiAssistantApi.ts): Base URL normalization, `/v1/models` dynamic fetcher, SSE stream parser, provider presets.
+  2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Compact Tile `AiCopilotWidget` and 2-column Expanded Workbench `AiCopilotExpandedWorkbench` with model selector, temperature slider, prompt chips (RCA, Security, Docker, Runbook), and live context inspector.
+  3. [`src/components/layout/FloatingTools.tsx`](file:///home/mx/000/src/components/layout/FloatingTools.tsx): Added `[🤖 AI Copilot]` tab to the Floating HUD Toolkit (`~`).
+  4. [`src/context/ToolsContext.tsx`](file:///home/mx/000/src/context/ToolsContext.tsx): Added `ai <query>` and `ask <query>` command execution in the CLI terminal.
+  5. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx) & [`src/services/moduleCatalog.ts`](file:///home/mx/000/src/services/moduleCatalog.ts): Registered `E9` in catalog and widget registries.
+- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,845 modules transformed).
+

@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTools } from '../../context/ToolsContext';
 import { useVault } from '../../context/VaultContext';
 import { soundFx } from '../../services/soundFx';
+import { getSavedAiConfig, streamChatCompletion } from '../../services/aiAssistantApi';
 
 export const FloatingTools: React.FC = () => {
   const { 
@@ -30,12 +31,52 @@ export const FloatingTools: React.FC = () => {
     jsonInput,
     setJsonInput,
     jsonFormatted,
-    setJsonFormatted
+    setJsonFormatted,
+    addLog
   } = useTools();
 
   const { generateRandomKey } = useVault();
 
+  // Floating AI Chat State
+  const [aiQuery, setAiQuery] = useState('');
+  const [aiAnswer, setAiAnswer] = useState('Ask 000-Copilot for instant assistance...');
+  const [isAiStreaming, setIsAiStreaming] = useState(false);
+
   if (!isBubbleOpen) return null;
+
+  const handleAiSend = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!aiQuery.trim() || isAiStreaming) return;
+
+    soundFx.playClick(1000);
+    const query = aiQuery.trim();
+    setAiQuery('');
+    setAiAnswer('');
+    setIsAiStreaming(true);
+
+    const cfg = getSavedAiConfig();
+    let streamAcc = '';
+    await streamChatCompletion({
+      config: cfg,
+      messages: [{ id: Date.now().toString(), role: 'user', content: query, timestamp: new Date().toISOString() }],
+      onChunk: (delta) => {
+        streamAcc += delta;
+        setAiAnswer(streamAcc);
+      },
+      onDone: (full) => {
+        soundFx.playDeploySuccess();
+        setIsAiStreaming(false);
+        setAiAnswer(full || streamAcc);
+        addLog('AI-HUD', `Answered: "${query.slice(0, 25)}"`, 'success');
+      },
+      onError: (err) => {
+        soundFx.playAlarm();
+        setIsAiStreaming(false);
+        setAiAnswer(`[Error: ${err}] Check Base URL in module E9.`);
+        addLog('AI-HUD', `Error: ${err}`, 'warn');
+      }
+    });
+  };
 
   return (
     <aside className="floating-hud-bubble">
@@ -45,6 +86,7 @@ export const FloatingTools: React.FC = () => {
       </div>
 
       <div className="bubble-tabs">
+        <button className={bubbleTool === 'ai' ? 'active' : ''} onClick={() => setBubbleTool('ai')}>[🤖 AI Copilot]</button>
         <button className={bubbleTool === 'ping' ? 'active' : ''} onClick={() => setBubbleTool('ping')}>[Ping Tester]</button>
         <button className={bubbleTool === 'gen' ? 'active' : ''} onClick={() => setBubbleTool('gen')}>[Token Gen]</button>
         <button className={bubbleTool === 'hash' ? 'active' : ''} onClick={() => setBubbleTool('hash')}>[SHA Verifier]</button>
@@ -53,6 +95,42 @@ export const FloatingTools: React.FC = () => {
       </div>
 
       <div className="bubble-content">
+        {bubbleTool === 'ai' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div
+              style={{
+                background: '#020306',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                padding: '6px',
+                fontSize: '9.5px',
+                fontFamily: 'monospace',
+                color: 'var(--fg)',
+                maxHeight: '120px',
+                overflowY: 'auto',
+                lineHeight: '1.4'
+              }}
+            >
+              {aiAnswer}
+              {isAiStreaming && <span className="animate-pulse" style={{ color: 'var(--cyan)' }}> ▋</span>}
+            </div>
+
+            <form onSubmit={handleAiSend} style={{ display: 'flex', gap: '4px' }}>
+              <input
+                type="text"
+                value={aiQuery}
+                onChange={e => setAiQuery(e.target.value)}
+                placeholder="Ask 000-Copilot..."
+                disabled={isAiStreaming}
+                style={{ flex: 1, fontSize: '9.5px' }}
+              />
+              <button className="btn-accent" type="submit" disabled={isAiStreaming || !aiQuery.trim()}>
+                {isAiStreaming ? '...' : '[Ask]'}
+              </button>
+            </form>
+          </div>
+        )}
+
         {bubbleTool === 'ping' && (
           <div>
             <form onSubmit={handleTestPing} style={{ display: 'flex', gap: '4px' }}>

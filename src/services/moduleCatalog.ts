@@ -75,6 +75,7 @@ export const ALL_MODULES: ModuleDefinition[] = [
   { id: 'E6', code: 'E6', name: 'Deploy History Log', group: 'E. ОПЕРАЦИИ И АВТОМАТИЗАЦИЯ', groupId: 'E', widgetType: 'Лог', description: 'История развертываний по средам' },
   { id: 'E7', code: 'E7', name: 'Feature Flags Switcher', group: 'E. ОПЕРАЦИИ И АВТОМАТИЗАЦИЯ', groupId: 'E', widgetType: 'Тогглы', description: 'Включение/выключение фич-флагов' },
   { id: 'E8', code: 'E8', name: 'Maintenance Window Banner', group: 'E. ОПЕРАЦИИ И АВТОМАТИЗАЦИЯ', groupId: 'E', widgetType: 'Индикатор', description: 'Таймер запланированных техработ' },
+  { id: 'E9', code: 'E9', name: 'AI Mission Copilot & Diagnostics', group: 'E. ОПЕРАЦИИ И АВТОМАТИЗАЦИЯ', groupId: 'E', widgetType: 'AI Copilot', description: 'OpenAI-совместимый AI ассистент, авто-подгрузка моделей (/v1/models), SSE стриминг и контекст инфраструктуры' },
 
   // Group F
   { id: 'F1', code: 'F1', name: 'System Audit Log', group: 'F. АУДИТ И БЕЗОПАСНОСТЬ', groupId: 'F', widgetType: 'Лог-поток', description: 'Журнал всех действий и операций в системе', defaultActive: true },
