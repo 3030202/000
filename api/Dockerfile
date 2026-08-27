@@ -22,7 +22,7 @@ EXPOSE 4000
 
 # Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=3s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://127.0.0.1:4000/health || exit 1
+  CMD wget -q -O /dev/null http://127.0.0.1:4000/health || exit 1
 
 # Run as root to allow /proc and docker socket access
 # Production note: restrict this further with docker socket proxy if needed
