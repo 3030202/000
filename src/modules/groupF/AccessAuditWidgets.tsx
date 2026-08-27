@@ -12,7 +12,9 @@ import {
   AlertTriangle,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  Copy,
+  Check
 } from 'lucide-react';
 import { soundFx } from '../../services/soundFx';
 import { useVault } from '../../context/VaultContext';
@@ -29,6 +31,7 @@ export const AccessAuditLedgerWidget: React.FC = () => {
   const { isVaultUnlocked, sessionRemainingSecs, sessionMode, lockVault } = useVault();
   const { setIsPasswordModalOpen } = useDashboard();
   const [records, setRecords] = useState<AuthAuditRecord[]>(getAuthAuditRecords);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -42,6 +45,14 @@ export const AccessAuditLedgerWidget: React.FC = () => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  };
+
+  const handleCopyRecord = (rec: AuthAuditRecord) => {
+    soundFx.playClick(1100);
+    const textToCopy = `[${rec.mskTimeStr}] ${rec.status} (${rec.mode}): ${rec.details}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedId(rec.id);
+    setTimeout(() => setCopiedId(null), 1200);
   };
 
   const successCount = records.filter(r => r.status === 'SUCCESS').length;
@@ -60,10 +71,22 @@ export const AccessAuditLedgerWidget: React.FC = () => {
           background: isVaultUnlocked
             ? 'linear-gradient(90deg, rgba(250, 204, 21, 0.15), rgba(56, 189, 248, 0.15))'
             : 'rgba(239, 68, 68, 0.1)',
-          border: isVaultUnlocked ? '1px solid var(--yellow)' : '1px solid rgba(239, 68, 68, 0.3)'
+          border: isVaultUnlocked ? '1px solid var(--yellow)' : '1px solid rgba(239, 68, 68, 0.3)',
+          boxShadow: isVaultUnlocked ? '0 0 10px rgba(250, 204, 21, 0.15)' : '0 0 10px rgba(239, 68, 68, 0.15)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span
+            style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: isVaultUnlocked ? 'var(--yellow)' : 'var(--red)',
+              boxShadow: isVaultUnlocked ? '0 0 6px var(--yellow)' : '0 0 6px var(--red)',
+              display: 'inline-block',
+              flexShrink: 0
+            }}
+          />
           {isVaultUnlocked ? (
             <Crown style={{ width: '14px', height: '14px', color: 'var(--yellow)' }} />
           ) : (
@@ -104,34 +127,42 @@ export const AccessAuditLedgerWidget: React.FC = () => {
         {records.slice(0, 4).map(rec => (
           <div
             key={rec.id}
+            onClick={() => handleCopyRecord(rec)}
+            title="Кликните, чтобы скопировать запись"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               padding: '3px 5px',
               borderRadius: '3px',
-              background: '#02040a',
-              border: '1px solid rgba(255,255,255,0.04)',
+              background: copiedId === rec.id ? 'rgba(56, 189, 248, 0.15)' : '#02040a',
+              border: copiedId === rec.id ? '1px solid var(--cyan)' : '1px solid rgba(255,255,255,0.04)',
               fontSize: '8px',
-              fontFamily: 'monospace'
+              fontFamily: 'monospace',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden' }}>
-              <span
-                style={{
-                  color:
-                    rec.status === 'SUCCESS'
-                      ? 'var(--yellow)'
-                      : rec.status === 'SESSION_EXPIRED'
-                      ? 'var(--cyan)'
-                      : 'var(--red)',
-                  fontWeight: 'bold'
-                }}
-              >
-                {rec.status === 'SUCCESS' ? '👑 OK' : rec.status === 'SESSION_EXPIRED' ? '⏳ 30M' : '❌ ERR'}
-              </span>
-              <span style={{ color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {rec.details}
+              {copiedId === rec.id ? (
+                <Check style={{ width: '10px', height: '10px', color: 'var(--cyan)' }} />
+              ) : (
+                <span
+                  style={{
+                    color:
+                      rec.status === 'SUCCESS'
+                        ? 'var(--yellow)'
+                        : rec.status === 'SESSION_EXPIRED'
+                        ? 'var(--cyan)'
+                        : 'var(--red)',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {rec.status === 'SUCCESS' ? '👑 OK' : rec.status === 'SESSION_EXPIRED' ? '⏳ 30M' : '❌ ERR'}
+                </span>
+              )}
+              <span style={{ color: copiedId === rec.id ? 'var(--cyan)' : '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {copiedId === rec.id ? 'Скопировано в буфер!' : rec.details}
               </span>
             </div>
             <span style={{ color: 'var(--fg-dim)', fontSize: '7.5px', flexShrink: 0 }}>
@@ -176,6 +207,8 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
   const [records, setRecords] = useState<AuthAuditRecord[]>(getAuthAuditRecords);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [isConfirmingClear, setIsConfirmingClear] = useState<boolean>(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     const handleUpdate = () => {
@@ -200,11 +233,18 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
     dlAnchor.click();
   };
 
-  const handleClear = () => {
-    if (window.confirm('Очистить весь журнал попыток авторизации? Это действие необратимо.')) {
-      soundFx.playAlarm();
-      clearAuthAuditRecords();
-    }
+  const handleConfirmClear = () => {
+    soundFx.playAlarm();
+    clearAuthAuditRecords();
+    setIsConfirmingClear(false);
+  };
+
+  const handleCopyRecord = (rec: AuthAuditRecord) => {
+    soundFx.playClick(1200);
+    const textToCopy = `[${rec.mskTimeStr}] STATUS: ${rec.status} | MODE: ${rec.mode} | DETAILS: ${rec.details}`;
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedId(rec.id);
+    setTimeout(() => setCopiedId(null), 1500);
   };
 
   const filteredRecords = records.filter(r => {
@@ -240,7 +280,8 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
           background: isVaultUnlocked
             ? 'linear-gradient(90deg, rgba(250, 204, 21, 0.15), rgba(56, 189, 248, 0.15))'
             : 'rgba(239, 68, 68, 0.12)',
-          border: isVaultUnlocked ? '1px solid var(--yellow)' : '1px solid rgba(239, 68, 68, 0.4)'
+          border: isVaultUnlocked ? '1px solid var(--yellow)' : '1px solid rgba(239, 68, 68, 0.4)',
+          boxShadow: isVaultUnlocked ? '0 0 16px rgba(250, 204, 21, 0.18)' : '0 0 16px rgba(239, 68, 68, 0.18)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -253,9 +294,22 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              border: isVaultUnlocked ? '2px solid var(--yellow)' : '2px solid var(--red)'
+              border: isVaultUnlocked ? '2px solid var(--yellow)' : '2px solid var(--red)',
+              position: 'relative'
             }}
           >
+            <span
+              style={{
+                position: 'absolute',
+                top: '-2px',
+                right: '-2px',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: isVaultUnlocked ? 'var(--yellow)' : 'var(--red)',
+                boxShadow: isVaultUnlocked ? '0 0 8px var(--yellow)' : '0 0 8px var(--red)'
+              }}
+            />
             {isVaultUnlocked ? (
               <Crown style={{ width: '20px', height: '20px', color: 'var(--yellow)' }} />
             ) : (
@@ -285,8 +339,9 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
           {isVaultUnlocked ? (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
               <div style={{ fontSize: '9px', color: 'var(--fg-dim)', fontFamily: 'monospace' }}>ТАЙМЕР СЕССИИ:</div>
-              <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--yellow)', fontFamily: 'monospace' }}>
-                {formatSecs(sessionRemainingSecs)}
+              <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--yellow)', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Timer style={{ width: '14px', height: '14px', color: 'var(--yellow)' }} />
+                <span>{formatSecs(sessionRemainingSecs)}</span>
               </div>
             </div>
           ) : (
@@ -354,6 +409,8 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
           ].map(f => (
             <button
               key={f.id}
+              aria-pressed={statusFilter === f.id}
+              aria-label={`Фильтр ${f.label}`}
               onClick={() => {
                 soundFx.playClick(900);
                 setStatusFilter(f.id);
@@ -378,8 +435,11 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Поиск по журналу..."
-              style={{ fontSize: '9px', padding: '3px 6px', width: '130px' }}
+              onKeyDown={e => {
+                if (e.key === 'Escape') setSearchQuery('');
+              }}
+              placeholder="Поиск (Esc сброс)..."
+              style={{ fontSize: '9px', padding: '3px 6px', width: '140px' }}
             />
           </div>
 
@@ -392,14 +452,35 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
             <span>Экспорт JSON</span>
           </button>
 
-          <button
-            onClick={handleClear}
-            style={{ fontSize: '8.5px', padding: '3px 8px', color: 'var(--red)', borderColor: 'var(--red)', display: 'flex', alignItems: 'center', gap: '3px' }}
-            title="Очистить журнал"
-          >
-            <Trash2 style={{ width: '12px', height: '12px' }} />
-            <span>Очистить</span>
-          </button>
+          {isConfirmingClear ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.15)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--red)' }}>
+              <span style={{ fontSize: '8px', color: 'var(--red)', fontFamily: 'monospace', fontWeight: 'bold' }}>⚠️ Очистить?</span>
+              <button
+                onClick={handleConfirmClear}
+                style={{ fontSize: '8px', padding: '1px 5px', color: '#fff', background: 'var(--red)', borderColor: 'var(--red)' }}
+              >
+                ДА
+              </button>
+              <button
+                onClick={() => setIsConfirmingClear(false)}
+                style={{ fontSize: '8px', padding: '1px 5px', color: 'var(--fg-dim)' }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => {
+                soundFx.playClick(700);
+                setIsConfirmingClear(true);
+              }}
+              style={{ fontSize: '8.5px', padding: '3px 8px', color: 'var(--red)', borderColor: 'var(--red)', display: 'flex', alignItems: 'center', gap: '3px' }}
+              title="Очистить журнал"
+            >
+              <Trash2 style={{ width: '12px', height: '12px' }} />
+              <span>Очистить</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -431,47 +512,58 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
                 const isBan = rec.status === 'LOCKOUT_BAN';
                 const isTimeout = rec.status === 'TIMEOUT_15S';
                 const isExpired = rec.status === 'SESSION_EXPIRED';
-                const isFail = rec.status === 'FAILED_PASSWORD';
+                const isCopied = copiedId === rec.id;
 
                 return (
                   <tr
                     key={rec.id}
+                    onClick={() => handleCopyRecord(rec)}
+                    title="Кликните, чтобы скопировать запись аудита"
                     style={{
                       borderBottom: '1px solid rgba(255,255,255,0.03)',
-                      background: isSuccess
+                      background: isCopied
+                        ? 'rgba(56, 189, 248, 0.18)'
+                        : isSuccess
                         ? 'rgba(250, 204, 21, 0.04)'
                         : isBan
                         ? 'rgba(239, 68, 68, 0.08)'
-                        : 'transparent'
+                        : 'transparent',
+                      cursor: 'pointer',
+                      transition: 'background 0.15s ease'
                     }}
                   >
                     <td style={{ padding: '6px 8px' }}>
-                      <span
-                        className={`pill ${
-                          isSuccess
-                            ? 'yellow'
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        {isCopied ? (
+                          <Check style={{ width: '12px', height: '12px', color: 'var(--cyan)' }} />
+                        ) : null}
+                        <span
+                          className={`pill ${
+                            isSuccess
+                              ? 'yellow'
+                              : isBan
+                              ? 'red'
+                              : isTimeout
+                              ? 'cyan'
+                              : isExpired
+                              ? 'purple'
+                              : 'red'
+                          }`}
+                          style={{ fontSize: '7.5px', fontWeight: 'bold' }}
+                        >
+                          {isSuccess
+                            ? '👑 ПАПА ДОМА'
                             : isBan
-                            ? 'red'
+                            ? '⛔ БАН 15 МИН'
                             : isTimeout
-                            ? 'cyan'
+                            ? '⏳ ВРЕМЯ И СТЕКЛО'
                             : isExpired
-                            ? 'purple'
-                            : 'red'
-                        }`}
-                        style={{ fontSize: '7.5px', fontWeight: 'bold' }}
-                      >
-                        {isSuccess
-                          ? '👑 ПАПА ДОМА'
-                          : isBan
-                          ? '⛔ БАН 15 МИН'
-                          : isTimeout
-                          ? '⏳ ВРЕМЯ И СТЕКЛО'
-                          : isExpired
-                          ? '⌛ ИСТЕКЛА (30М)'
-                          : rec.status === 'MANUAL_LOCK'
-                          ? '🔒 БЛОКИРОВКА'
-                          : '❌ ОШИБКА'}
-                      </span>
+                            ? '⌛ ИСТЕКЛА (30М)'
+                            : rec.status === 'MANUAL_LOCK'
+                            ? '🔒 БЛОКИРОВКА'
+                            : '❌ ОШИБКА'}
+                        </span>
+                      </div>
                     </td>
 
                     <td style={{ padding: '6px 8px', color: 'var(--cyan)' }}>
@@ -482,8 +574,8 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
                       {rec.mode}
                     </td>
 
-                    <td style={{ padding: '6px 8px', color: isSuccess ? 'var(--yellow)' : '#fff' }}>
-                      {rec.details}
+                    <td style={{ padding: '6px 8px', color: isCopied ? 'var(--cyan)' : isSuccess ? 'var(--yellow)' : '#fff' }}>
+                      {isCopied ? '📋 Запись скопирована в буфер обмена!' : rec.details}
                     </td>
 
                     <td style={{ padding: '6px 8px', color: 'var(--fg-dim)' }}>
@@ -494,8 +586,11 @@ export const AccessAuditLedgerWorkbench: React.FC = () => {
               })
             ) : (
               <tr>
-                <td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: 'var(--fg-dim)' }}>
-                  Нет записей, соответствующих выбранному фильтру.
+                <td colSpan={5} style={{ padding: '24px', textAlign: 'center', color: 'var(--fg-dim)' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
+                    <Search style={{ width: '20px', height: '20px', color: 'var(--fg-muted)' }} />
+                    <span>Записи по выбранным критериям поиска или фильтрации не найдены.</span>
+                  </div>
                 </td>
               </tr>
             )}
