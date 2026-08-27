@@ -454,6 +454,78 @@ export const executeLocalTool = async (
   }
 };
 
+export interface SavedProviderProfile {
+  id: string;
+  name: string;
+  baseUrl: string;
+  apiKey: string;
+  selectedModel?: string;
+  isCustom?: boolean;
+  createdAt: string;
+}
+
+export const getSavedProviderProfiles = (): SavedProviderProfile[] => {
+  try {
+    const raw = localStorage.getItem('000_ai_saved_providers');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+
+  const initialProfiles: SavedProviderProfile[] = AI_PROVIDER_PRESETS.map(p => ({
+    id: p.id,
+    name: p.name,
+    baseUrl: p.baseUrl,
+    apiKey: '',
+    selectedModel: p.defaultModel,
+    isCustom: false,
+    createdAt: new Date().toISOString()
+  }));
+
+  try {
+    localStorage.setItem('000_ai_saved_providers', JSON.stringify(initialProfiles));
+  } catch {}
+
+  return initialProfiles;
+};
+
+export const saveProviderProfiles = (profiles: SavedProviderProfile[]): void => {
+  try {
+    localStorage.setItem('000_ai_saved_providers', JSON.stringify(profiles));
+  } catch {}
+};
+
+export const getFavoriteModelIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem('000_ai_favorite_models');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  return [
+    'gpt-4o',
+    'gpt-4o-mini',
+    'claude-3-5-sonnet',
+    'claude-3-5-sonnet-20241022',
+    'deepseek-r1',
+    'deepseek-chat',
+    'llama-3.3-70b-versatile',
+    'llama3.3',
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o'
+  ];
+};
+
+export const saveFavoriteModelIds = (modelIds: string[]): void => {
+  try {
+    localStorage.setItem('000_ai_favorite_models', JSON.stringify(modelIds));
+  } catch {}
+};
+
 export interface AiConfig {
   baseUrl: string;
   apiKey: string;
@@ -462,6 +534,7 @@ export interface AiConfig {
   maxTokens: number;
   systemPrompt: string;
   enableTools: boolean;
+  activeProviderId?: string;
 }
 
 const DEFAULT_SYSTEM_PROMPT = `You are 000-Copilot, an elite AI Site Reliability Engineer and DevOps assistant integrated into the 000-Mission-Control operations deck.
@@ -478,7 +551,8 @@ export const getSavedAiConfig = (): AiConfig => {
       return {
         ...parsed,
         systemPrompt: parsed.systemPrompt || DEFAULT_SYSTEM_PROMPT,
-        enableTools: parsed.enableTools ?? true
+        enableTools: parsed.enableTools ?? true,
+        activeProviderId: parsed.activeProviderId || 'tooken'
       };
     }
   } catch {}
@@ -489,7 +563,8 @@ export const getSavedAiConfig = (): AiConfig => {
     temperature: 0.7,
     maxTokens: 2048,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
-    enableTools: true
+    enableTools: true,
+    activeProviderId: 'tooken'
   };
 };
 

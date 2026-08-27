@@ -13,6 +13,11 @@ import {
   AiConfig,
   getSavedAiConfig,
   saveAiConfig,
+  SavedProviderProfile,
+  getSavedProviderProfiles,
+  saveProviderProfiles,
+  getFavoriteModelIds,
+  saveFavoriteModelIds,
   fetchAvailableModels,
   streamChatCompletion,
   detectModelCapabilities
@@ -231,8 +236,15 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
   const [voiceConfig, setVoiceConfig] = useState<VoiceConfig>(getSavedVoiceConfig);
   const [availableModels, setAvailableModels] = useState<AiModelItem[]>([]);
   const [modelFilter, setModelFilter] = useState('');
+  const [selectedFilterCategory, setSelectedFilterCategory] = useState<'all' | 'favorites' | 'vision' | 'tools' | 'reasoning' | 'code' | 'tts'>('all');
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState('');
+
+  // Provider Profiles & Favorite Models
+  const [savedProfiles, setSavedProfiles] = useState<SavedProviderProfile[]>(getSavedProviderProfiles);
+  const [favoriteModelIds, setFavoriteModelIds] = useState<string[]>(getFavoriteModelIds);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [newProfileName, setNewProfileName] = useState('');
 
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -292,29 +304,80 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     saveVoiceConfig(newVoiceCfg);
   };
 
-  const handlePresetSelect = (presetId: string) => {
+  const handleToggleFavorite = (modelId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    soundFx.playClick(1000);
+    setFavoriteModelIds(prev => {
+      const next = prev.includes(modelId) ? prev.filter(id => id !== modelId) : [...prev, modelId];
+      saveFavoriteModelIds(next);
+      addLog('AI-FAV', `${next.includes(modelId) ? 'Starred' : 'Unstarred'} favorite model: ${modelId}`, 'info');
+      return next;
+    });
+  };
+
+  const handleSelectProviderProfile = (profileId: string) => {
     soundFx.playClick(900);
-    const preset = AI_PROVIDER_PRESETS.find(p => p.id === presetId);
-    if (!preset) return;
+    const profile = savedProfiles.find(p => p.id === profileId);
+    if (!profile) return;
 
     const newCfg: AiConfig = {
       ...config,
-      baseUrl: preset.baseUrl,
-      selectedModel: preset.defaultModel
+      baseUrl: profile.baseUrl,
+      apiKey: profile.apiKey,
+      selectedModel: profile.selectedModel || config.selectedModel,
+      activeProviderId: profile.id
     };
     handleSaveAndSyncConfig(newCfg);
 
     // Pre-populate models list with preset models
-    const fallbackList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[preset.id] || PROVIDER_DEFAULT_MODELS.custom).map(id => ({
+    const matchedPreset = AI_PROVIDER_PRESETS.find(p => p.id === profile.id || profile.baseUrl.includes(p.id))?.id || 'custom';
+    const fallbackList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.custom).map(id => ({
       id,
       name: id,
-      owned_by: preset.id,
-      capabilities: detectModelCapabilities(id, preset.id)
+      owned_by: matchedPreset,
+      capabilities: detectModelCapabilities(id, matchedPreset)
     }));
     setAvailableModels(fallbackList);
 
-    handleFetchModels(preset.baseUrl, newCfg.apiKey);
-    addLog('AI-CONFIG', `Selected preset: ${preset.name}`, 'info');
+    handleFetchModels(profile.baseUrl, profile.apiKey);
+    addLog('AI-PROFILE', `Switched to provider profile: ${profile.name}`, 'info');
+  };
+
+  const handleSaveCurrentAsProfile = () => {
+    if (!newProfileName.trim()) return;
+    soundFx.playDeploySuccess();
+    const newProfile: SavedProviderProfile = {
+      id: `custom_${Date.now()}`,
+      name: newProfileName.trim(),
+      baseUrl: config.baseUrl,
+      apiKey: config.apiKey,
+      selectedModel: config.selectedModel,
+      isCustom: true,
+      createdAt: new Date().toISOString()
+    };
+
+    const updated = [...savedProfiles, newProfile];
+    setSavedProfiles(updated);
+    saveProviderProfiles(updated);
+    handleSaveAndSyncConfig({ ...config, activeProviderId: newProfile.id });
+    setNewProfileName('');
+    setIsSavingProfile(false);
+    addLog('AI-PROFILE', `Saved new provider profile: "${newProfile.name}"`, 'success');
+  };
+
+  const handleDeleteProfile = (profileId: string) => {
+    soundFx.playAlarm();
+    const updated = savedProfiles.filter(p => p.id !== profileId);
+    setSavedProfiles(updated);
+    saveProviderProfiles(updated);
+    if (config.activeProviderId === profileId) {
+      handleSelectProviderProfile(updated[0]?.id || 'tooken');
+    }
+    addLog('AI-PROFILE', 'Deleted custom provider profile', 'warn');
+  };
+
+  const handlePresetSelect = (presetId: string) => {
+    handleSelectProviderProfile(presetId);
   };
 
   const handleFetchModels = async (baseUrl: string, apiKey?: string) => {
@@ -577,9 +640,38 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     ]);
   };
 
-  const filteredModels = availableModels.filter(m =>
-    m.id.toLowerCase().includes(modelFilter.toLowerCase())
-  );
+  const filteredModels = availableModels.filter(m => {
+    // 1. Text filter (ID, name, owned_by)
+    const matchesText =
+      !modelFilter ||
+      m.id.toLowerCase().includes(modelFilter.toLowerCase()) ||
+      (m.name && m.name.toLowerCase().includes(modelFilter.toLowerCase())) ||
+      (m.owned_by && m.owned_by.toLowerCase().includes(modelFilter.toLowerCase()));
+    if (!matchesText) return false;
+
+    // 2. Category filter
+    if (selectedFilterCategory === 'favorites') {
+      return favoriteModelIds.includes(m.id);
+    }
+    if (selectedFilterCategory === 'vision') {
+      return m.capabilities.vision;
+    }
+    if (selectedFilterCategory === 'tools') {
+      return m.capabilities.tools;
+    }
+    if (selectedFilterCategory === 'reasoning') {
+      return m.capabilities.reasoning;
+    }
+    if (selectedFilterCategory === 'code') {
+      return m.capabilities.code;
+    }
+    if (selectedFilterCategory === 'tts') {
+      return m.capabilities.tts;
+    }
+    return true;
+  });
+
+  const activeProfile = savedProfiles.find(p => p.id === config.activeProviderId || p.baseUrl === config.baseUrl);
 
   return (
     <div className="workbench-split">
@@ -592,7 +684,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
               🤖 000-COPILOT
             </span>
             <span className="pill green" style={{ fontSize: '8px', fontWeight: 'bold' }}>
-              {config.selectedModel}
+              {favoriteModelIds.includes(config.selectedModel) ? '⭐ ' : ''}{config.selectedModel}
             </span>
             {activeCaps.vision && (
               <span className="pill cyan" style={{ fontSize: '7.5px' }} title="Vision / Image Understanding Supported">
@@ -1059,23 +1151,89 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Column: Connection & Voice Synthesis Settings */}
-      <div className="workbench-right" style={{ padding: '8px', gap: '8px' }}>
-        <div style={{ fontSize: '11px', color: 'var(--cyan)', fontWeight: 'bold', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
-          ⚙️ OPENAI-COMPATIBLE CONNECTION & MODELS
+      {/* Right Column: Connection, Saved Providers & Filterable Models */}
+      <div className="workbench-right" style={{ padding: '8px', gap: '7px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--cyan)', fontWeight: 'bold', borderBottom: '1px solid var(--border)', paddingBottom: '3px' }}>
+          ⚙️ AI PROVIDERS & MODEL REGISTRY
         </div>
 
-        {/* 1-Click Provider Presets */}
+        {/* Saved Provider Profiles Selector & Manager */}
+        <div style={{ background: '#030712', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--cyan)' }}>
+              🗂️ SAVED PROVIDERS ({savedProfiles.length})
+            </span>
+            <button
+              onClick={() => setIsSavingProfile(!isSavingProfile)}
+              style={{ fontSize: '8px', padding: '1px 5px', borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
+            >
+              {isSavingProfile ? '✕ Cancel' : '+ Save As Profile'}
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <select
+              value={config.activeProviderId || ''}
+              onChange={e => handleSelectProviderProfile(e.target.value)}
+              style={{ flex: 1, fontSize: '9px', padding: '3px 6px', background: '#050a18', color: 'var(--cyan)', fontWeight: 'bold' }}
+            >
+              {savedProfiles.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.isCustom ? '⭐ [Custom] ' : '⚡ '} {p.name}
+                </option>
+              ))}
+            </select>
+
+            {activeProfile?.isCustom && (
+              <button
+                onClick={() => handleDeleteProfile(activeProfile.id)}
+                style={{ fontSize: '8px', padding: '2px 5px', color: 'var(--red)', borderColor: 'var(--red)' }}
+                title="Delete saved custom profile"
+              >
+                🗑️
+              </button>
+            )}
+          </div>
+
+          {/* Inline Save Profile Form */}
+          {isSavingProfile && (
+            <div style={{ display: 'flex', gap: '4px', background: '#02040a', padding: '4px', borderRadius: '3px', border: '1px dashed var(--cyan)', marginTop: '2px' }}>
+              <input
+                type="text"
+                value={newProfileName}
+                onChange={e => setNewProfileName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveCurrentAsProfile(); }}
+                placeholder="Profile name (e.g. My Tooken.club, VPS vLLM)..."
+                style={{ flex: 1, fontSize: '8.5px', padding: '2px 4px' }}
+              />
+              <button
+                className="btn-accent"
+                onClick={handleSaveCurrentAsProfile}
+                disabled={!newProfileName.trim()}
+                style={{ fontSize: '8.5px', padding: '2px 6px' }}
+              >
+                Save
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* 1-Click Provider Quick Presets */}
         <div>
-          <div style={{ fontSize: '9px', color: 'var(--fg-muted)', marginBottom: '3px' }}>1-CLICK PROVIDER PRESETS</div>
+          <div style={{ fontSize: '8.5px', color: 'var(--fg-muted)', marginBottom: '2px' }}>QUICK PRESETS</div>
           <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
             {AI_PROVIDER_PRESETS.map(preset => (
               <button
                 key={preset.id}
                 onClick={() => handlePresetSelect(preset.id)}
-                style={{ fontSize: '8.5px', padding: '2px 5px' }}
+                style={{
+                  fontSize: '8px',
+                  padding: '1px 4px',
+                  borderColor: config.activeProviderId === preset.id ? 'var(--cyan)' : undefined,
+                  color: config.activeProviderId === preset.id ? 'var(--cyan)' : undefined
+                }}
               >
-                {preset.name}
+                {preset.name.split(' ')[0]}
               </button>
             ))}
           </div>
@@ -1083,24 +1241,24 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
 
         {/* Base URL Configuration */}
         <div>
-          <label style={{ fontSize: '9px', color: 'var(--fg-muted)', display: 'block', marginBottom: '2px' }}>
-            OPENAI-COMPATIBLE BASE URL
+          <label style={{ fontSize: '8.5px', color: 'var(--fg-muted)', display: 'block', marginBottom: '2px' }}>
+            BASE URL
           </label>
           <div style={{ display: 'flex', gap: '4px' }}>
             <input
               type="text"
               value={config.baseUrl}
               onChange={e => handleSaveAndSyncConfig({ ...config, baseUrl: e.target.value })}
-              placeholder="http://localhost:11434/v1 or https://openrouter.ai/api/v1"
-              style={{ flex: 1, fontSize: '9.5px', fontFamily: 'monospace' }}
+              placeholder="https://tooken.club/v1 or http://localhost:11434/v1"
+              style={{ flex: 1, fontSize: '9px', fontFamily: 'monospace' }}
             />
             <button
               className="btn-accent"
               onClick={() => handleFetchModels(config.baseUrl, config.apiKey)}
               disabled={isFetchingModels}
-              style={{ fontSize: '9px', padding: '0 6px', whiteSpace: 'nowrap' }}
+              style={{ fontSize: '8.5px', padding: '0 6px', whiteSpace: 'nowrap' }}
             >
-              {isFetchingModels ? 'Syncing...' : '🔄 Sync Models'}
+              {isFetchingModels ? 'Syncing...' : '🔄 Sync'}
             </button>
           </div>
         </div>
@@ -1108,12 +1266,12 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
         {/* API Key Configuration */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
-            <label style={{ fontSize: '9px', color: 'var(--fg-muted)' }}>
+            <label style={{ fontSize: '8.5px', color: 'var(--fg-muted)' }}>
               API KEY / BEARER TOKEN
             </label>
             <button
               onClick={() => setShowApiKey(!showApiKey)}
-              style={{ fontSize: '8px', padding: '0 3px' }}
+              style={{ fontSize: '7.5px', padding: '0 3px' }}
             >
               {showApiKey ? 'Hide' : 'Show'}
             </button>
@@ -1123,25 +1281,35 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
             value={config.apiKey}
             onChange={e => handleSaveAndSyncConfig({ ...config, apiKey: e.target.value })}
             placeholder="sk-or-v1-... or leave blank for local"
-            style={{ width: '100%', fontSize: '9.5px', fontFamily: 'monospace' }}
+            style={{ width: '100%', fontSize: '9px', fontFamily: 'monospace' }}
           />
         </div>
 
-        {/* Active Selected Model & Direct Manual Input */}
+        {/* Active Selected Model & Quick Favorite Model Chips */}
         <div>
-          <label style={{ fontSize: '9px', color: 'var(--fg-muted)', display: 'block', marginBottom: '2px' }}>
-            ACTIVE MODEL ID (Select from list below or type custom name)
-          </label>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+            <label style={{ fontSize: '8.5px', color: 'var(--fg-muted)' }}>
+              ACTIVE MODEL ID
+            </label>
+            <button
+              type="button"
+              onClick={(e) => handleToggleFavorite(config.selectedModel, e)}
+              style={{ fontSize: '8px', padding: '0 4px', border: 'none', background: 'transparent', color: favoriteModelIds.includes(config.selectedModel) ? 'var(--yellow)' : 'var(--fg-dim)', cursor: 'pointer' }}
+              title="Toggle star for active model"
+            >
+              {favoriteModelIds.includes(config.selectedModel) ? '⭐ Favorited' : '☆ Star Model'}
+            </button>
+          </div>
           <input
             type="text"
             value={config.selectedModel}
             onChange={e => handleSaveAndSyncConfig({ ...config, selectedModel: e.target.value })}
-            placeholder="e.g. gpt-4o, anthropic/claude-3.5-sonnet, llama3.3, deepseek-r1..."
-            style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', color: 'var(--cyan)', fontWeight: 'bold' }}
+            placeholder="e.g. gpt-4o, claude-3-5-sonnet, deepseek-r1..."
+            style={{ width: '100%', fontSize: '9.5px', fontFamily: 'monospace', color: 'var(--cyan)', fontWeight: 'bold' }}
           />
-          {/* Quick model chips */}
-          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '4px' }}>
-            {['gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet', 'llama-3.3-70b', 'deepseek-r1', 'deepseek-chat', 'gemini-2.0-flash', 'qwen-2.5-coder'].map(m => (
+          {/* Quick Favorite Chips */}
+          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '3px' }}>
+            {favoriteModelIds.slice(0, 8).map(m => (
               <button
                 key={m}
                 type="button"
@@ -1150,14 +1318,15 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                   handleSaveAndSyncConfig({ ...config, selectedModel: m });
                 }}
                 style={{
-                  fontSize: '8px',
+                  fontSize: '7.5px',
                   padding: '1px 4px',
-                  background: config.selectedModel.includes(m) ? 'rgba(56, 189, 248, 0.2)' : undefined,
-                  borderColor: config.selectedModel.includes(m) ? 'var(--cyan)' : undefined,
-                  color: config.selectedModel.includes(m) ? 'var(--cyan)' : undefined
+                  background: config.selectedModel === m ? 'rgba(56, 189, 248, 0.2)' : undefined,
+                  borderColor: config.selectedModel === m ? 'var(--cyan)' : undefined,
+                  color: config.selectedModel === m ? 'var(--cyan)' : undefined
                 }}
+                title={`Select ${m}`}
               >
-                {m}
+                ⭐ {m.split('/').pop()}
               </button>
             ))}
           </div>
@@ -1165,42 +1334,58 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
 
         {/* Error Alert */}
         {fetchError && (
-          <div style={{ padding: '5px 7px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--red)', color: 'var(--red)', fontSize: '8.5px', borderRadius: '4px', lineHeight: '1.3' }}>
+          <div style={{ padding: '4px 6px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--red)', color: 'var(--red)', fontSize: '8px', borderRadius: '4px', lineHeight: '1.3' }}>
             <div>⚠️ {fetchError}</div>
-            <div style={{ marginTop: '3px', display: 'flex', gap: '4px' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const matched = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'openrouter';
-                  const list: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matched] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
-                    id,
-                    name: id,
-                    owned_by: matched,
-                    capabilities: detectModelCapabilities(id, matched)
-                  }));
-                  setAvailableModels(list);
-                  setFetchError('');
-                }}
-                style={{ fontSize: '8px', padding: '1px 4px' }}
-              >
-                ✨ Load Default Models
-              </button>
-            </div>
           </div>
         )}
 
-        {/* Discovered Models Dropdown */}
-        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '90px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
-            <label style={{ fontSize: '9px', color: 'var(--fg-muted)' }}>
-              AVAILABLE MODELS ({availableModels.length})
-            </label>
+        {/* Model Filter Pills & Discovered Models Registry */}
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: '110px' }}>
+          {/* Category Filter Chips */}
+          <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', marginBottom: '3px' }}>
+            {[
+              { id: 'all', label: 'All', icon: '🌐' },
+              { id: 'favorites', label: `⭐ Fav (${favoriteModelIds.length})`, icon: '' },
+              { id: 'vision', label: 'Vision', icon: '👁️' },
+              { id: 'tools', label: 'Tools', icon: '⚡' },
+              { id: 'reasoning', label: 'Reasoning', icon: '🧠' },
+              { id: 'code', label: 'Code', icon: '💻' }
+            ].map(f => {
+              const isActive = selectedFilterCategory === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => {
+                    soundFx.playClick(900);
+                    setSelectedFilterCategory(f.id as any);
+                  }}
+                  style={{
+                    fontSize: '7.5px',
+                    padding: '1px 4px',
+                    background: isActive ? (f.id === 'favorites' ? 'rgba(250, 204, 21, 0.2)' : 'rgba(56, 189, 248, 0.25)') : undefined,
+                    borderColor: isActive ? (f.id === 'favorites' ? 'var(--yellow)' : 'var(--cyan)') : undefined,
+                    color: isActive ? (f.id === 'favorites' ? 'var(--yellow)' : 'var(--cyan)') : 'var(--fg-muted)',
+                    fontWeight: isActive ? 'bold' : 'normal'
+                  }}
+                >
+                  {f.icon ? `${f.icon} ` : ''}{f.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Filter Input & Count */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+            <span style={{ fontSize: '8px', color: 'var(--fg-muted)' }}>
+              MODELS ({filteredModels.length}/{availableModels.length})
+            </span>
             <input
               type="text"
               value={modelFilter}
               onChange={e => setModelFilter(e.target.value)}
-              placeholder="Filter..."
-              style={{ width: '80px', fontSize: '8.5px', padding: '1px 3px' }}
+              placeholder="Search..."
+              style={{ width: '90px', fontSize: '8px', padding: '1px 3px' }}
             />
           </div>
 
@@ -1211,12 +1396,13 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
               border: '1px solid var(--border)',
               borderRadius: '4px',
               overflowY: 'auto',
-              maxHeight: '90px'
+              maxHeight: '110px'
             }}
           >
             {filteredModels.length > 0 ? (
               filteredModels.map(m => {
                 const isSelected = m.id === config.selectedModel;
+                const isFav = favoriteModelIds.includes(m.id);
                 return (
                   <div
                     key={m.id}
@@ -1225,7 +1411,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                       handleSaveAndSyncConfig({ ...config, selectedModel: m.id });
                     }}
                     style={{
-                      padding: '3px 6px',
+                      padding: '2px 5px',
                       fontSize: '8.5px',
                       fontFamily: 'monospace',
                       cursor: 'pointer',
@@ -1234,29 +1420,62 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                       borderBottom: '1px solid rgba(255,255,255,0.03)',
                       display: 'flex',
                       justifyContent: 'space-between',
-                      alignItems: 'center'
+                      alignItems: 'center',
+                      gap: '4px'
                     }}
                   >
-                    <span>{isSelected ? '✓ ' : ''}{m.id}</span>
-                    <span style={{ fontSize: '7.5px', color: 'var(--fg-muted)' }}>{m.owned_by}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flex: 1, overflow: 'hidden' }}>
+                      {/* Star Button */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleFavorite(m.id, e)}
+                        style={{
+                          background: 'transparent',
+                          border: 'none',
+                          padding: '0 1px',
+                          cursor: 'pointer',
+                          fontSize: '9px',
+                          color: isFav ? 'var(--yellow)' : 'var(--fg-dim)',
+                          lineHeight: 1
+                        }}
+                        title={isFav ? 'Remove from favorites' : 'Star as favorite'}
+                      >
+                        {isFav ? '⭐' : '☆'}
+                      </button>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {isSelected ? '✓ ' : ''}{m.id}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0 }}>
+                      {m.capabilities.vision && <span title="Vision" style={{ fontSize: '7px', color: 'var(--cyan)' }}>👁️</span>}
+                      {m.capabilities.tools && <span title="Tools" style={{ fontSize: '7px', color: 'var(--yellow)' }}>⚡</span>}
+                      {m.capabilities.reasoning && <span title="Reasoning" style={{ fontSize: '7px', color: 'var(--purple)' }}>🧠</span>}
+                      {m.capabilities.code && <span title="Code" style={{ fontSize: '7px', color: 'var(--blue)' }}>💻</span>}
+                      <span style={{ fontSize: '7px', color: 'var(--fg-muted)' }}>{m.owned_by}</span>
+                    </div>
                   </div>
                 );
               })
             ) : (
-              <div style={{ padding: '8px', textAlign: 'center', color: 'var(--fg-dim)', fontSize: '8.5px' }}>
-                {isFetchingModels ? 'Connecting to /v1/models...' : 'No models loaded. Click "🔄 Sync Models" above.'}
+              <div style={{ padding: '8px', textAlign: 'center', color: 'var(--fg-dim)', fontSize: '8px' }}>
+                {selectedFilterCategory === 'favorites'
+                  ? 'No favorite models yet. Click ☆ next to any model to star it!'
+                  : isFetchingModels
+                  ? 'Connecting to /v1/models...'
+                  : 'No models matched your filter.'}
               </div>
             )}
           </div>
         </div>
 
         {/* Autonomous Tool Calling & Capabilities Profile */}
-        <div style={{ background: '#02040a', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ background: '#02040a', border: '1px solid var(--border)', borderRadius: '4px', padding: '5px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--yellow)' }}>
+            <span style={{ fontSize: '8.5px', fontWeight: 'bold', color: 'var(--yellow)' }}>
               ⚡ TOOL CALLING & CAPABILITIES
             </span>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '8px', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '8px', cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={config.enableTools}
@@ -1265,7 +1484,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
               <span>Enabled</span>
             </label>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '8px', color: 'var(--fg-dim)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', fontSize: '7.5px', color: 'var(--fg-dim)' }}>
             <div>Vision: <strong style={{ color: activeCaps.vision ? 'var(--cyan)' : 'var(--fg-muted)' }}>{activeCaps.vision ? '✓ Active' : '✕ No'}</strong></div>
             <div>Tools: <strong style={{ color: activeCaps.tools ? 'var(--yellow)' : 'var(--fg-muted)' }}>{activeCaps.tools ? '✓ Supported' : '✕ No'}</strong></div>
             <div>Reasoning: <strong style={{ color: activeCaps.reasoning ? 'var(--purple)' : 'var(--fg-muted)' }}>{activeCaps.reasoning ? '✓ CoT' : '✕ Standard'}</strong></div>

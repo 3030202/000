@@ -58,10 +58,10 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   4. [`src/components/layout/FloatingTools.tsx`](file:///home/mx/000/src/components/layout/FloatingTools.tsx): Added microphone STT button to Floating AI Copilot tab.
 - **Verification**: `npm run build` (`tsc && vite build`) transformed 1,847 modules and built in 15.70s with 0 errors.
 
-### [2026-08-27] Autonomous Model Capabilities, Multi-modal Vision & Tool Calling (E9)
-- **Scope**: Automatic detection of model capabilities (Vision, OpenAI Function Calling / Tools, Audio TTS, Deep Reasoning CoT, SRE Code Specialist, Context Window estimation), multi-modal vision image attachment & clipboard paste (Ctrl+V), live OpenAI tool schema & recursive execution loop (`get_system_telemetry`, `get_docker_status`, `run_ping_diagnostic`, `execute_ops_action`, `generate_secure_secret`, `search_module_catalog`), and interactive cyber cards for tool invocations.
+### [2026-08-27] Model Filters, ⭐ Favorite Models & Saved Providers Manager (E9)
+- **Scope**: Model filtering by capabilities (`All`, `⭐ Favorites`, `👁️ Vision`, `⚡ Tools`, `🧠 Reasoning`, `💻 Code`), interactive star toggling to save models to favorites (`localStorage`), quick favorite chips, and multi-provider profile management (switching between saved providers, adding custom profiles with base URL/API key, and deleting custom profiles).
 - **Components Created & Updated**:
-  1. [`src/services/aiAssistantApi.ts`](file:///home/mx/000/src/services/aiAssistantApi.ts): Added `detectModelCapabilities`, `MISSION_CONTROL_TOOLS` schema, `executeLocalTool` engine, multi-modal message formatter, and recursive tool execution streaming loop.
-  2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added Capabilities Badges in header (`[👁️ VISION]`, `[⚡ TOOLS]`, `[🧠 REASONING]`, `[💻 SRE CODE]`, `[🎙️ AUDIO TTS]`), image attachment with clipboard paste (Ctrl+V) & drag-and-drop, tool execution cards with collapsible JSON results, quick tool invocation chips, and autonomous tool calling settings toggle.
-- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,848 modules transformed).
+  1. [`src/services/aiAssistantApi.ts`](file:///home/mx/000/src/services/aiAssistantApi.ts): Added `SavedProviderProfile`, `getSavedProviderProfiles`, `saveProviderProfiles`, `getFavoriteModelIds`, and `saveFavoriteModelIds`.
+  2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added Saved Provider selector dropdown, `+ Save As Profile` modal/form, custom profile delete action, model category filter chips, search input filter, star `⭐`/`☆` toggle per model item, and quick favorite model chips.
+- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,848 modules transformed in 20.76s).
 

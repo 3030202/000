@@ -174,3 +174,8 @@
   • Reference: TASK-015
   • New Status: COMPLETED
   • Notes: Autonomous Model Capabilities detection (Vision, Tools, Reasoning, Code, Audio TTS), Multi-modal Vision image attachment & clipboard paste (Ctrl+V), OpenAI Tools Schema & live execution loop (get_system_telemetry, get_docker_status, run_ping_diagnostic, execute_ops_action, generate_secure_secret, search_module_catalog), and interactive cyber tool invocation cards implemented. Production build succeeded (0 errors).
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-016
+  • New Status: COMPLETED
+  • Notes: Model Filters (All, Favorites, Vision, Tools, Reasoning, Code), ⭐ Starred Favorite Models persistence with 1-click toggling, and Saved Provider Profiles Management (dropdown selector, custom profile creation, and removal) implemented. Production build succeeded (0 errors).
