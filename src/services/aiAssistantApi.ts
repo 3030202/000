@@ -36,6 +36,14 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     docUrl: 'https://openrouter.ai'
   },
   {
+    id: 'tooken',
+    name: 'Tooken.club / Proxy',
+    baseUrl: 'https://tooken.club/v1',
+    defaultModel: 'gpt-4o',
+    requiresKey: true,
+    docUrl: 'https://tooken.club'
+  },
+  {
     id: 'openai',
     name: 'OpenAI Platform',
     baseUrl: 'https://api.openai.com/v1',
@@ -96,6 +104,16 @@ export const PROVIDER_DEFAULT_MODELS: Record<string, string[]> = {
     'google/gemini-2.0-flash-exp:free',
     'qwen/qwen-2.5-coder-32b-instruct'
   ],
+  tooken: [
+    'gpt-4o',
+    'gpt-4o-mini',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+    'deepseek-r1',
+    'deepseek-chat',
+    'o1',
+    'o3-mini'
+  ],
   openai: ['gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'gpt-4-turbo'],
   groq: [
     'llama-3.3-70b-versatile',
@@ -134,9 +152,9 @@ export const getSavedAiConfig = (): AiConfig => {
     }
   } catch {}
   return {
-    baseUrl: 'https://openrouter.ai/api/v1',
+    baseUrl: 'https://tooken.club/v1',
     apiKey: '',
-    selectedModel: 'anthropic/claude-3.5-sonnet',
+    selectedModel: 'gpt-4o',
     temperature: 0.7,
     maxTokens: 2048,
     systemPrompt: DEFAULT_SYSTEM_PROMPT
@@ -160,8 +178,24 @@ export const normalizeBaseUrl = (url: string): string => {
 };
 
 /**
+ * Transforms an absolute URL into our internal backend CORS proxy path.
+ * e.g. https://tooken.club/v1/models -> /api/ai-proxy/https/tooken.club/v1/models
+ */
+export const buildProxiedUrl = (targetUrl: string): string => {
+  try {
+    const parsed = new URL(targetUrl);
+    const proto = parsed.protocol.replace(':', '');
+    const host = parsed.host;
+    const pathAndQuery = parsed.pathname + parsed.search;
+    return `/api/ai-proxy/${proto}/${host}${pathAndQuery}`;
+  } catch {
+    return targetUrl;
+  }
+};
+
+/**
  * Automatically fetch available models from an OpenAI-compatible /v1/models or /api/tags endpoint.
- * Supports multi-candidate URL resolution, fallback presets, and CORS diagnostics.
+ * Supports multi-candidate URL resolution, automatic backend CORS proxy fallback, and presets.
  */
 export const fetchAvailableModels = async (
   rawBaseUrl: string,
@@ -200,71 +234,72 @@ export const fetchAvailableModels = async (
   let lastError = '';
 
   for (const endpoint of endpointsToTry) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+    // Attempt direct URL first, then transparently fallback to backend proxy if CORS/network fails
+    const attempts = [endpoint, buildProxiedUrl(endpoint)];
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        headers,
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        lastError = `HTTP ${response.status} (${response.statusText}) from ${endpoint}`;
-        continue;
-      }
-
-      const text = await response.text();
-      let data: any;
+    for (const url of attempts) {
       try {
-        data = JSON.parse(text);
-      } catch {
-        lastError = `Received non-JSON response from ${endpoint}`;
-        continue;
-      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      let rawList: any[] = [];
-      if (Array.isArray(data)) {
-        rawList = data;
-      } else if (Array.isArray(data.data)) {
-        rawList = data.data;
-      } else if (Array.isArray(data.models)) {
-        rawList = data.models;
-      }
+        const response = await fetch(url, {
+          method: 'GET',
+          headers,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
 
-      const models: AiModelItem[] = rawList.map((item: any) => {
-        const id = typeof item === 'string' ? item : item.id || item.name || item.model || 'unknown';
-        return {
-          id,
-          name: item.name || item.id || id,
-          owned_by: item.owned_by || item.publisher || (endpoint.includes('tags') ? 'ollama' : 'custom'),
-          created: item.created || (item.modified_at ? new Date(item.modified_at).getTime() / 1000 : undefined)
-        };
-      }).filter(m => m.id && m.id !== 'unknown');
-
-      if (models.length > 0) {
-        models.sort((a, b) => a.id.localeCompare(b.id));
-        return { success: true, models, endpointUsed: endpoint };
-      }
-    } catch (err: any) {
-      if (err.name === 'AbortError') {
-        lastError = `Timeout (6s) connecting to ${endpoint}`;
-      } else if (err.message?.includes('Failed to fetch') || err.name === 'TypeError') {
-        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
-        if (isHttps && endpoint.startsWith('http://')) {
-          lastError = `Browser blocked HTTP endpoint "${endpoint}" on HTTPS page (Mixed Content). Use an HTTPS URL or local tunnel.`;
-        } else {
-          lastError = `CORS or Network Error connecting to "${endpoint}". Verify server is online and allows origin (e.g. OLLAMA_ORIGINS="*").`;
+        const text = await response.text();
+        let data: any;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          if (!response.ok) {
+            lastError = `HTTP ${response.status} (${response.statusText}): ${text.slice(0, 120)}`;
+          }
+          continue;
         }
-      } else {
-        lastError = err.message || `Error connecting to ${endpoint}`;
+
+        if (!response.ok) {
+          const errDetail = data?.error?.message || data?.error?.title || data?.message || response.statusText;
+          lastError = `HTTP ${response.status}: ${errDetail}`;
+          continue;
+        }
+
+        let rawList: any[] = [];
+        if (Array.isArray(data)) {
+          rawList = data;
+        } else if (Array.isArray(data.data)) {
+          rawList = data.data;
+        } else if (Array.isArray(data.models)) {
+          rawList = data.models;
+        }
+
+        const models: AiModelItem[] = rawList.map((item: any) => {
+          const id = typeof item === 'string' ? item : item.id || item.name || item.model || 'unknown';
+          return {
+            id,
+            name: item.name || item.id || id,
+            owned_by: item.owned_by || item.publisher || (endpoint.includes('tags') ? 'ollama' : 'custom'),
+            created: item.created || (item.modified_at ? new Date(item.modified_at).getTime() / 1000 : undefined)
+          };
+        }).filter(m => m.id && m.id !== 'unknown');
+
+        if (models.length > 0) {
+          models.sort((a, b) => a.id.localeCompare(b.id));
+          return { success: true, models, endpointUsed: endpoint };
+        }
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          lastError = `Timeout (6s) connecting to ${endpoint}`;
+        } else {
+          lastError = err.message || `Error connecting to ${endpoint}`;
+        }
       }
     }
   }
 
-  // Fallback: Populate preset default models so the user is never stuck with an empty list
+  // Fallback: Populate preset default models
   let matchedPreset = 'custom';
   for (const preset of AI_PROVIDER_PRESETS) {
     try {
@@ -300,7 +335,7 @@ export interface StreamChatOptions {
 }
 
 /**
- * Executes a streaming chat completion against any OpenAI-compatible provider.
+ * Executes a streaming chat completion against any OpenAI-compatible provider with automatic backend CORS proxying.
  */
 export const streamChatCompletion = async ({
   config,
@@ -327,14 +362,13 @@ export const streamChatCompletion = async ({
     headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
   }
 
-  // Format system prompt with live infrastructure context if present
   let dynamicSystemPrompt = config.systemPrompt;
   if (systemContext) {
     dynamicSystemPrompt += `\n\n=== LIVE MISSION CONTROL INFRASTRUCTURE STATE ===\n${JSON.stringify(systemContext, null, 2)}`;
   }
 
   const payload = {
-    model: config.selectedModel || 'default',
+    model: config.selectedModel || 'gpt-4o',
     messages: [
       { role: 'system', content: dynamicSystemPrompt },
       ...messages.map(m => ({ role: m.role, content: m.content }))
@@ -344,20 +378,34 @@ export const streamChatCompletion = async ({
     stream: true
   };
 
-  try {
-    const response = await fetch(completionsEndpoint, {
+  const makeRequest = async (url: string) => {
+    return await fetch(url, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
       signal
     });
+  };
+
+  try {
+    let response: Response;
+    try {
+      response = await makeRequest(completionsEndpoint);
+    } catch (err: any) {
+      if (err.name === 'AbortError') throw err;
+      // Automatically retry via backend CORS proxy
+      response = await makeRequest(buildProxiedUrl(completionsEndpoint));
+    }
 
     if (!response.ok) {
       let errBody = '';
       try {
+        const json = await response.json();
+        errBody = json?.error?.message || json?.error?.title || json?.message || JSON.stringify(json);
+      } catch {
         errBody = await response.text();
-      } catch {}
-      throw new Error(`HTTP ${response.status} (${response.statusText}): ${errBody.slice(0, 200)}`);
+      }
+      throw new Error(`HTTP ${response.status} (${response.statusText}): ${errBody.slice(0, 300)}`);
     }
 
     if (!response.body) {
