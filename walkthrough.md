@@ -58,3 +58,13 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   4. [`src/components/layout/FloatingTools.tsx`](file:///home/mx/000/src/components/layout/FloatingTools.tsx): Added microphone STT button to Floating AI Copilot tab.
 - **Verification**: `npm run build` (`tsc && vite build`) transformed 1,847 modules and built in 15.70s with 0 errors.
 
+### [2026-08-27] Mobile-First Cyber Deck & Responsive Adaptation
+- **Scope**: Complete mobile ergonomics, persistent bottom navigation bar, single-column responsive tile grid, collapsible DEFCON header drawer, touch-drag support for topology graph, and PWA optimizations.
+- **Components Created & Updated**:
+  1. [`src/components/layout/MobileBottomNav.tsx`](file:///home/mx/000/src/components/layout/MobileBottomNav.tsx): 5-button touch action bar (Modules, Spotlight, AI Copilot, Tools, Vault) with iOS Safe Area support.
+  2. [`src/components/layout/Header.tsx`](file:///home/mx/000/src/components/layout/Header.tsx): Mobile-responsive top bar with collapsible DEFCON level selector and themes drawer.
+  3. [`src/index.css`](file:///home/mx/000/src/index.css): Responsive single-column grid (`1fr`), bottom-sheet modals, touch targets, and `font-size: 14px` input zoom prevention.
+  4. [`src/modules/groupG/TopologyCanvasWidgets.tsx`](file:///home/mx/000/src/modules/groupG/TopologyCanvasWidgets.tsx): Touch drag & drop events (`onTouchStart`, `onTouchMove`, `onTouchEnd`) on HTML5 canvas.
+  5. [`index.html`](file:///home/mx/000/index.html): Viewport meta tag with `viewport-fit=cover`, Apple mobile web app capability tags, and `#05070a` theme color.
+- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,848 modules transformed).
+

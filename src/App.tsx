@@ -11,6 +11,7 @@ import { ModulePickerModal } from './components/ModulePickerModal';
 import { LayoutProfilesModal } from './components/LayoutProfilesModal';
 import { SpotlightModal } from './components/SpotlightModal';
 import { MasterPasswordModal } from './components/MasterPasswordModal';
+import { MobileBottomNav } from './components/layout/MobileBottomNav';
 import { soundFx } from './services/soundFx';
 
 const DashboardContent: React.FC = () => {
@@ -138,6 +139,9 @@ const DashboardContent: React.FC = () => {
           return res;
         }}
       />
+
+      {/* Persistent Mobile Bottom Navigation Action Bar */}
+      <MobileBottomNav />
     </div>
   );
 };

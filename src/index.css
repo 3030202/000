@@ -645,3 +645,204 @@ input:focus, textarea:focus { border-color: var(--cyan); }
   animation: safeDialSpin 20s linear infinite;
 }
 
+/* ==========================================================================
+   MOBILE RESPONSIVE SYSTEM & BOTTOM ACTION BAR
+   ========================================================================== */
+
+.show-on-mobile {
+  display: none !important;
+}
+
+.hide-on-mobile {
+  display: flex !important;
+}
+
+.mobile-bottom-nav {
+  display: none;
+}
+
+.mobile-header-drawer {
+  display: none;
+  background: #060a14;
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px;
+  flex-direction: column;
+  gap: 6px;
+  animation: slideDown 0.2s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+
+  .show-on-mobile {
+    display: flex !important;
+  }
+
+  /* Single Column Mobile Grid Layout */
+  .grid-layout,
+  .grid-layout.cols-1,
+  .grid-layout.cols-2,
+  .grid-layout.cols-3,
+  .grid-layout.cols-4,
+  .grid-layout.cols-6,
+  .master-layout,
+  .rows-layout {
+    grid-template-columns: 1fr !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    padding: 8px !important;
+  }
+
+  /* Bottom spacing for Mobile Nav Bar */
+  .app-workspace-body {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .module-grid {
+    padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Touch-friendly Pane Tiles */
+  .module-pane {
+    min-height: 160px;
+  }
+
+  .pane-header {
+    height: 28px !important;
+    padding: 0 8px !important;
+  }
+
+  .pane-actions button {
+    height: 22px !important;
+    padding: 0 6px !important;
+    font-size: 10px !important;
+  }
+
+  /* Workbench Mobile Stack */
+  .workbench-split {
+    flex-direction: column !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
+  .workbench-left,
+  .workbench-right {
+    width: 100% !important;
+    flex: none !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    max-height: none !important;
+  }
+
+  /* Mobile Modals (Bottom-Sheet / Full Width) */
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-content,
+  .spotlight-modal,
+  .picker-modal,
+  .layout-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 16px 16px 0 0 !important;
+    max-height: 88vh !important;
+    margin: 0 !important;
+  }
+
+  /* Mobile Persistent Bottom Action Bar */
+  .mobile-bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(54px + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+    background: rgba(4, 7, 14, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid rgba(56, 189, 248, 0.25);
+    z-index: 999;
+    align-items: center;
+    justify-content: space-around;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.6);
+  }
+
+  .mobile-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    background: transparent;
+    border: none;
+    color: var(--fg-dim);
+    gap: 2px;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+
+  .mobile-nav-btn:active {
+    background: rgba(56, 189, 248, 0.15);
+  }
+
+  .mobile-nav-btn.active {
+    color: var(--cyan);
+  }
+
+  .mobile-nav-btn.unlocked {
+    color: var(--green);
+  }
+
+  .mobile-nav-btn.locked {
+    color: var(--yellow);
+  }
+
+  .mobile-nav-btn-highlight {
+    color: var(--cyan);
+    font-weight: bold;
+  }
+
+  .mobile-nav-icon {
+    font-size: 16px;
+    line-height: 1;
+  }
+
+  .mobile-nav-label {
+    font-size: 7.5px;
+    font-family: monospace;
+    letter-spacing: 0.5px;
+  }
+
+  /* Floating HUD adjustment for mobile */
+  .floating-hud-bubble {
+    width: calc(100% - 16px) !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(62px + env(safe-area-inset-bottom)) !important;
+    max-height: 60vh !important;
+  }
+
+  /* Prevent iOS input zoom */
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  select,
+  textarea {
+    font-size: 14px !important;
+  }
+}
+
+

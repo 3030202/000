@@ -362,6 +362,44 @@ export const InteractiveCyberTopologyWorkbench: React.FC = () => {
     setNodes(prev => prev.map(n => n.id === draggedNodeId ? { ...n, x: mx, y: my } : n));
   };
 
+  const handleTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!e.touches[0]) return;
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = (touch.clientX - rect.left) / rect.width;
+    const my = (touch.clientY - rect.top) / rect.height;
+
+    const clicked = nodes.find(n => {
+      const dx = (n.x - mx) * rect.width;
+      const dy = (n.y - my) * rect.height;
+      return Math.sqrt(dx * dx + dy * dy) <= n.radius + 15;
+    });
+
+    if (clicked) {
+      soundFx.playClick(900);
+      setSelectedNodeId(clicked.id);
+      setDraggedNodeId(clicked.id);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!draggedNodeId || !e.touches[0]) return;
+    const touch = e.touches[0];
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = Math.max(0.08, Math.min(0.92, (touch.clientX - rect.left) / rect.width));
+    const my = Math.max(0.08, Math.min(0.92, (touch.clientY - rect.top) / rect.height));
+
+    setNodes(prev => prev.map(n => n.id === draggedNodeId ? { ...n, x: mx, y: my } : n));
+  };
+
+  const handleTouchEnd = () => {
+    setDraggedNodeId(null);
+  };
+
   const handleMouseUp = () => {
     setDraggedNodeId(null);
   };
@@ -404,17 +442,21 @@ export const InteractiveCyberTopologyWorkbench: React.FC = () => {
           </div>
         </div>
 
-        <div style={{ flex: 1, position: 'relative', cursor: draggedNodeId ? 'grabbing' : 'grab' }}>
+        <div style={{ flex: 1, position: 'relative', cursor: draggedNodeId ? 'grabbing' : 'grab', touchAction: 'none' }}>
           <canvas
             ref={canvasRef}
             onMouseDown={handleMouseDown}
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            onTouchCancel={handleTouchEnd}
             style={{ width: '100%', height: '100%', display: 'block' }}
           />
           <div style={{ position: 'absolute', bottom: '6px', left: '6px', fontSize: '9px', color: 'var(--fg-muted)', pointerEvents: 'none' }}>
-            💡 Drag nodes to reposition • Click to inspect telemetry
+            💡 Drag or Touch nodes to reposition • Tap to inspect telemetry
           </div>
         </div>
       </div>
