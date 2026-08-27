@@ -308,18 +308,24 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     saveVoiceConfig(newVoiceCfg);
   };
 
-  const handleQuickConnectOllama = (url = 'http://localhost:11434/v1') => {
+  const handleQuickConnectOllama = (url = '/api/ollama/v1') => {
     soundFx.playDeploySuccess();
+    const activeProviderId = url.includes('/api/ollama')
+      ? 'ollama-tunnel'
+      : url.includes('127.0.0.1')
+      ? 'ollama-ip'
+      : 'ollama';
+
     const newCfg: AiConfig = {
       ...config,
       baseUrl: url,
       apiKey: '',
       selectedModel: 'qwen-coder-32b-abliterated',
-      activeProviderId: url.includes('127.0.0.1') ? 'ollama-ip' : 'ollama'
+      activeProviderId
     };
     handleSaveAndSyncConfig(newCfg);
     handleFetchModels(url);
-    addLog('OLLAMA', `Connected to local Ollama instance at ${url} with model qwen-coder-32b-abliterated`, 'success');
+    addLog('OLLAMA', `Connected to Ollama engine via ${url} with model qwen-coder-32b-abliterated`, 'success');
   };
 
   const handleToggleFavorite = (modelId: string, e?: React.MouseEvent) => {
@@ -1352,10 +1358,10 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '9.5px', fontWeight: 'bold', color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <span>🦙</span>
-              <span>OLLAMA LOCAL (QWEN-CODER-32B)</span>
+              <span>OLLAMA LOCAL & SECURE TUNNEL (QWEN-CODER-32B)</span>
             </span>
-            <span className={`pill ${config.baseUrl.includes('11434') ? 'green' : 'dim'}`} style={{ fontSize: '7.5px' }}>
-              {config.baseUrl.includes('11434') ? '● ACTIVE ENGINE' : 'OFFLINE'}
+            <span className={`pill ${config.baseUrl.includes('11434') || config.baseUrl.includes('ollama') ? 'green' : 'dim'}`} style={{ fontSize: '7.5px' }}>
+              {config.baseUrl.includes('11434') || config.baseUrl.includes('ollama') ? '● ACTIVE ENGINE' : 'OFFLINE'}
             </span>
           </div>
 
@@ -1363,17 +1369,25 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
             <button
               type="button"
               className="btn-accent"
-              onClick={() => handleQuickConnectOllama('http://localhost:11434/v1')}
-              style={{ fontSize: '8px', padding: '2px 6px' }}
+              onClick={() => handleQuickConnectOllama('/api/ollama/v1')}
+              style={{ fontSize: '8px', padding: '2px 7px', background: 'linear-gradient(135deg, #0284c7, #06b6d4)', fontWeight: 'bold' }}
+              title="Безопасный туннель без CORS и без блокировок браузера"
             >
-              🔌 Подключить (localhost:11434)
+              🚀 Через Туннель (/api/ollama/v1)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickConnectOllama('http://localhost:11434/v1')}
+              style={{ fontSize: '8px', padding: '2px 6px', borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
+            >
+              🔌 localhost:11434
             </button>
             <button
               type="button"
               onClick={() => handleQuickConnectOllama('http://127.0.0.1:11434/v1')}
-              style={{ fontSize: '8px', padding: '2px 6px', borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
+              style={{ fontSize: '8px', padding: '2px 6px' }}
             >
-              🔌 Подключить (127.0.0.1:11434)
+              🔌 127.0.0.1:11434
             </button>
             <button
               type="button"
@@ -1381,7 +1395,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
               style={{ fontSize: '8px', padding: '2px 5px', color: 'var(--yellow)', borderColor: 'var(--yellow)' }}
               title="Инструкция по настройке OLLAMA_ORIGINS"
             >
-              {showOllamaGuide ? '✕ Скрыть помощь' : 'ℹ️ Инструкция CORS'}
+              {showOllamaGuide ? '✕ Скрыть помощь' : 'ℹ️ CORS / Туннель'}
             </button>
           </div>
 

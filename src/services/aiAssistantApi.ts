@@ -57,6 +57,14 @@ export interface AiProviderPreset {
 
 export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
   {
+    id: 'ollama-tunnel',
+    name: 'Ollama Tunnel (03.0x101.lol)',
+    baseUrl: '/api/ollama/v1',
+    defaultModel: 'qwen-coder-32b-abliterated',
+    requiresKey: false,
+    docUrl: 'https://03.0x101.lol'
+  },
+  {
     id: 'ollama',
     name: 'Ollama Local (Qwen-Coder-32B)',
     baseUrl: 'http://localhost:11434/v1',
@@ -531,7 +539,7 @@ export const getFavoriteProviderIds = (): string[] => {
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
-  return ['ollama', 'ollama-ip', 'tooken', 'openrouter', 'deepseek'];
+  return ['ollama-tunnel', 'ollama', 'ollama-ip', 'tooken', 'openrouter', 'deepseek'];
 };
 
 export const saveFavoriteProviderIds = (providerIds: string[]): void => {
