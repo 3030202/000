@@ -48,18 +48,30 @@ const DashboardContent: React.FC = () => {
   const { addLog } = useTools();
 
   return (
-    <div className="app-root">
-      {/* Top Navigation & Status */}
-      <Header />
+    <div className="app-root" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* Background Dashboard & Workspace (Completely blurred & obscured until safe is unlocked) */}
+      <div
+        className={`app-workspace-body ${!isVaultUnlocked ? 'vault-locked-blur' : ''}`}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          width: '100%',
+          overflow: 'hidden'
+        }}
+      >
+        {/* Top Navigation & Status */}
+        <Header />
 
-      {/* Main Dynamic Workspace */}
-      <ModuleGrid />
+        {/* Main Dynamic Workspace */}
+        <ModuleGrid />
 
-      {/* Floating HUD Bubble */}
-      <FloatingTools />
+        {/* Floating HUD Bubble */}
+        <FloatingTools />
 
-      {/* Bottom Status Bar */}
-      <Footer />
+        {/* Bottom Status Bar */}
+        <Footer />
+      </div>
 
       {/* Modals & Overlays */}
       <LayoutProfilesModal

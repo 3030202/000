@@ -22,6 +22,7 @@ export interface VaultContextType {
   handleCopySecret: (id: string, val: string) => void;
   generateRandomKey: (len: number, type: 'hex' | 'alphanumeric') => string;
   unlockVault: (pass: string) => UnlockResult;
+  recordTimeoutFailure: () => UnlockResult;
   lockVault: () => void;
 }
 
@@ -107,6 +108,29 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return { success: false, error: 'INVALID', attemptsLeft: 1 };
   };
 
+  const recordTimeoutFailure = (): UnlockResult => {
+    const now = Date.now();
+    const storedBan = Number(localStorage.getItem('000_vault_banned_until') || '0');
+    if (storedBan > now) {
+      setBannedUntil(storedBan);
+      return { success: false, error: 'BANNED', bannedUntil: storedBan };
+    }
+
+    soundFx.playAlarm();
+    const newCount = failedAttempts + 1;
+    setFailedAttempts(newCount);
+    localStorage.setItem('000_vault_failed_count', String(newCount));
+
+    if (newCount >= 2) {
+      const lockUntil = Date.now() + 15 * 60 * 1000;
+      setBannedUntil(lockUntil);
+      localStorage.setItem('000_vault_banned_until', String(lockUntil));
+      return { success: false, error: 'BANNED', bannedUntil: lockUntil, attemptsLeft: 0 };
+    }
+
+    return { success: false, error: 'TIMEOUT', attemptsLeft: 1 };
+  };
+
   const lockVault = () => {
     setIsVaultUnlocked(false);
     setRevealedSecrets({});
@@ -178,6 +202,7 @@ export const VaultProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         handleCopySecret,
         generateRandomKey,
         unlockVault,
+        recordTimeoutFailure,
         lockVault
       }}
     >
