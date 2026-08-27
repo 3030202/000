@@ -49,3 +49,12 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   5. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx) & [`src/services/moduleCatalog.ts`](file:///home/mx/000/src/services/moduleCatalog.ts): Registered `E9` in catalog and widget registries.
 - **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,845 modules transformed).
 
+### [2026-08-27] Voice Interaction, TTS & Hands-Free Duplex (E9)
+- **Scope**: Speech-to-Text (STT) voice recognition, Text-to-Speech (TTS) synthesis with browser & OpenAI TTS (`/v1/audio/speech`), full-duplex hands-free walkie-talkie mode, and Canvas 2D audio visualizer.
+- **Components Created & Updated**:
+  1. [`src/services/voiceAssistantEngine.ts`](file:///home/mx/000/src/services/voiceAssistantEngine.ts): Web Speech API STT handler, SpeechSynthesis wrapper, OpenAI TTS client, markdown cleaner for speech, and Web Audio API `AnalyserNode` stream connector.
+  2. [`src/components/common/CyberAudioVisualizer.tsx`](file:///home/mx/000/src/components/common/CyberAudioVisualizer.tsx): Canvas 2D live audio frequency spectrum visualizer with central glowing Voice Orb and dynamic states (`idle`, `listening`, `thinking`, `speaking`).
+  3. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added Voice HUD bar with Push-to-Talk, Hands-Free toggle, Auto-Speak toggle, 🔊 speak buttons per message, and Voice Settings tab (engine selector, voice picker, rate, language).
+  4. [`src/components/layout/FloatingTools.tsx`](file:///home/mx/000/src/components/layout/FloatingTools.tsx): Added microphone STT button to Floating AI Copilot tab.
+- **Verification**: `npm run build` (`tsc && vite build`) transformed 1,847 modules and built in 15.70s with 0 errors.
+

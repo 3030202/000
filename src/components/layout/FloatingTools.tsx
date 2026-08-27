@@ -3,6 +3,7 @@ import { useTools } from '../../context/ToolsContext';
 import { useVault } from '../../context/VaultContext';
 import { soundFx } from '../../services/soundFx';
 import { getSavedAiConfig, streamChatCompletion } from '../../services/aiAssistantApi';
+import { getSavedVoiceConfig, voiceEngine } from '../../services/voiceAssistantEngine';
 
 export const FloatingTools: React.FC = () => {
   const { 
@@ -39,17 +40,17 @@ export const FloatingTools: React.FC = () => {
 
   // Floating AI Chat State
   const [aiQuery, setAiQuery] = useState('');
-  const [aiAnswer, setAiAnswer] = useState('Ask 000-Copilot for instant assistance...');
+  const [aiAnswer, setAiAnswer] = useState('Ask 000-Copilot for instant assistance or click 🎙️...');
   const [isAiStreaming, setIsAiStreaming] = useState(false);
+  const [isAiListening, setIsAiListening] = useState(false);
 
   if (!isBubbleOpen) return null;
 
-  const handleAiSend = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!aiQuery.trim() || isAiStreaming) return;
+  const handleAiSend = async (customPrompt?: string) => {
+    const query = (customPrompt || aiQuery).trim();
+    if (!query || isAiStreaming) return;
 
     soundFx.playClick(1000);
-    const query = aiQuery.trim();
     setAiQuery('');
     setAiAnswer('');
     setIsAiStreaming(true);
@@ -66,7 +67,8 @@ export const FloatingTools: React.FC = () => {
       onDone: (full) => {
         soundFx.playDeploySuccess();
         setIsAiStreaming(false);
-        setAiAnswer(full || streamAcc);
+        const finalAns = full || streamAcc;
+        setAiAnswer(finalAns);
         addLog('AI-HUD', `Answered: "${query.slice(0, 25)}"`, 'success');
       },
       onError: (err) => {
@@ -76,6 +78,38 @@ export const FloatingTools: React.FC = () => {
         addLog('AI-HUD', `Error: ${err}`, 'warn');
       }
     });
+  };
+
+  const handleFloatingMic = () => {
+    if (isAiListening) {
+      voiceEngine.stopListening();
+      setIsAiListening(false);
+    } else {
+      soundFx.playClick(1000);
+      setIsAiListening(true);
+      const vCfg = getSavedVoiceConfig();
+      voiceEngine.startListening({
+        language: vCfg.sttLanguage,
+        onResult: (text) => {
+          setIsAiListening(false);
+          if (text) {
+            setAiQuery(text);
+            handleAiSend(text);
+          }
+        },
+        onInterim: (text) => {
+          setAiQuery(text);
+        },
+        onError: (err) => {
+          soundFx.playAlarm();
+          setIsAiListening(false);
+          addLog('VOICE-HUD', `STT Error: ${err}`, 'warn');
+        },
+        onEnd: () => {
+          setIsAiListening(false);
+        }
+      });
+    }
   };
 
   return (
@@ -115,12 +149,32 @@ export const FloatingTools: React.FC = () => {
               {isAiStreaming && <span className="animate-pulse" style={{ color: 'var(--cyan)' }}> ▋</span>}
             </div>
 
-            <form onSubmit={handleAiSend} style={{ display: 'flex', gap: '4px' }}>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAiSend();
+              }}
+              style={{ display: 'flex', gap: '4px' }}
+            >
+              <button
+                type="button"
+                onClick={handleFloatingMic}
+                className={isAiListening ? 'btn-accent' : ''}
+                style={{
+                  padding: '0 6px',
+                  fontSize: '11px',
+                  borderColor: isAiListening ? 'var(--green)' : undefined,
+                  color: isAiListening ? 'var(--green)' : undefined
+                }}
+                title="Voice Input (STT)"
+              >
+                🎙️
+              </button>
               <input
                 type="text"
                 value={aiQuery}
                 onChange={e => setAiQuery(e.target.value)}
-                placeholder="Ask 000-Copilot..."
+                placeholder={isAiListening ? 'Listening...' : 'Ask or speak to 000-Copilot...'}
                 disabled={isAiStreaming}
                 style={{ flex: 1, fontSize: '9.5px' }}
               />
