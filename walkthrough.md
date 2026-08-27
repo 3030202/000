@@ -65,3 +65,15 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added Saved Provider selector dropdown, `+ Save As Profile` modal/form, custom profile delete action, model category filter chips, search input filter, star `⭐`/`☆` toggle per model item, and quick favorite model chips.
 - **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,848 modules transformed in 20.76s).
 
+### [2026-08-27] Cyber Numpad, Auto-Unlock «ПАПА ДОМА» Mode, 30-Min Session & F3 Auth Audit Ledger
+- **Scope**: Touch & mouse cyber numeric keypad, instant auto-unlock upon correct password («ПАПА ДОМА» mode) without button click, 30-minute session duration with live countdown and auto-relock, full auth attempt logging with Moscow timestamps, and dedicated F3 Access Audit Ledger module.
+- **Components Created & Updated**:
+  1. [`src/context/VaultContext.tsx`](file:///home/mx/000/src/context/VaultContext.tsx): Exported `checkMasterPassword` verification helper, updated session duration to 30 minutes (`30 * 60 * 1000 ms`), integrated auto-lock when session expires, and wired all auth attempts to `recordAuthEvent`.
+  2. [`src/services/authAuditLog.ts`](file:///home/mx/000/src/services/authAuditLog.ts): Created persistent audit log service with `localStorage` storage (`000_auth_audit_records`), Moscow time formatter (`MSK`), event emitter for live reactivity, JSON exporter, and clear functionality.
+  3. [`src/components/MasterPasswordModal.tsx`](file:///home/mx/000/src/components/MasterPasswordModal.tsx): Added on-screen Cyber Numpad (`[1]-[9]`, `[⌫ Del]`, `[0]`, `[C Clear]`), instant auto-submit verification on digit change without button click, and glowing `👑 РЕЖИМ «ПАПА ДОМА» АКТИВИРОВАН` celebration banner.
+  4. [`src/modules/groupF/AccessAuditWidgets.tsx`](file:///home/mx/000/src/modules/groupF/AccessAuditWidgets.tsx): Built compact `AccessAuditLedgerWidget` tile and full-featured `AccessAuditLedgerWorkbench` with live session countdown, KPI cards (Total, Папа Дома, Failed, 15s Timeouts, 15m Bans), category filters, search input, JSON log export, log clear, and instant safe lock/unlock.
+  5. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx) & [`src/services/moduleCatalog.ts`](file:///home/mx/000/src/services/moduleCatalog.ts): Registered `F3` in catalog and widget registries.
+  6. [`src/components/layout/Header.tsx`](file:///home/mx/000/src/components/layout/Header.tsx) & [`src/components/layout/MobileBottomNav.tsx`](file:///home/mx/000/src/components/layout/MobileBottomNav.tsx): Added live `👑 [ПАПА ДОМА: MM:SS]` session badge in header and bottom navigation.
+- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,850 modules transformed). Git committed and deployed to VPS `31.76.102.23` (`https://03.0x101.lol`).
+
+
