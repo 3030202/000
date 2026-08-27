@@ -7,6 +7,7 @@ import {
   AiModelItem,
   ChatMessage,
   AI_PROVIDER_PRESETS,
+  PROVIDER_DEFAULT_MODELS,
   AiConfig,
   getSavedAiConfig,
   saveAiConfig,
@@ -256,6 +257,15 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
 
   // Initial load of models & voices
   useEffect(() => {
+    // Immediately load models list
+    const matchedPreset = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'openrouter';
+    const initialList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
+      id,
+      name: id,
+      owned_by: matchedPreset
+    }));
+    setAvailableModels(initialList);
+
     handleFetchModels(config.baseUrl, config.apiKey);
 
     const loadVoices = () => {
@@ -289,6 +299,15 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
       selectedModel: preset.defaultModel
     };
     handleSaveAndSyncConfig(newCfg);
+
+    // Pre-populate models list with preset models
+    const fallbackList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[preset.id] || PROVIDER_DEFAULT_MODELS.custom).map(id => ({
+      id,
+      name: id,
+      owned_by: preset.id
+    }));
+    setAvailableModels(fallbackList);
+
     handleFetchModels(preset.baseUrl, newCfg.apiKey);
     addLog('AI-CONFIG', `Selected preset: ${preset.name}`, 'info');
   };
@@ -301,17 +320,18 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     const res = await fetchAvailableModels(baseUrl, apiKey);
     setIsFetchingModels(false);
 
-    if (res.success && res.models.length > 0) {
-      soundFx.playDeploySuccess();
+    if (res.models && res.models.length > 0) {
       setAvailableModels(res.models);
-      if (!res.models.some(m => m.id === config.selectedModel)) {
-        const nextModel = res.models[0].id;
-        handleSaveAndSyncConfig({ ...config, selectedModel: nextModel });
+      if (res.success) {
+        soundFx.playDeploySuccess();
+        addLog('AI-MODELS', `Discovered ${res.models.length} models via ${res.endpointUsed || baseUrl}`, 'success');
+      } else {
+        setFetchError(res.error || 'Server did not return live models. Showing default provider models.');
+        addLog('AI-MODELS', `Model sync notice: ${res.error}`, 'warn');
       }
-      addLog('AI-MODELS', `Fetched ${res.models.length} models from ${baseUrl}`, 'success');
     } else {
       soundFx.playAlarm();
-      setFetchError(res.error || 'Failed to fetch models');
+      setFetchError(res.error || 'Failed to fetch models from endpoint.');
       addLog('AI-MODELS', `Error fetching models: ${res.error}`, 'warn');
     }
   };
@@ -874,10 +894,64 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
           />
         </div>
 
+        {/* Active Selected Model & Direct Manual Input */}
+        <div>
+          <label style={{ fontSize: '9px', color: 'var(--fg-muted)', display: 'block', marginBottom: '2px' }}>
+            ACTIVE MODEL ID (Select from list below or type custom name)
+          </label>
+          <input
+            type="text"
+            value={config.selectedModel}
+            onChange={e => handleSaveAndSyncConfig({ ...config, selectedModel: e.target.value })}
+            placeholder="e.g. gpt-4o, anthropic/claude-3.5-sonnet, llama3.3, deepseek-r1..."
+            style={{ width: '100%', fontSize: '10px', fontFamily: 'monospace', color: 'var(--cyan)', fontWeight: 'bold' }}
+          />
+          {/* Quick model chips */}
+          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', marginTop: '4px' }}>
+            {['gpt-4o', 'gpt-4o-mini', 'claude-3.5-sonnet', 'llama-3.3-70b', 'deepseek-r1', 'deepseek-chat', 'gemini-2.0-flash', 'qwen-2.5-coder'].map(m => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => {
+                  soundFx.playClick(900);
+                  handleSaveAndSyncConfig({ ...config, selectedModel: m });
+                }}
+                style={{
+                  fontSize: '8px',
+                  padding: '1px 4px',
+                  background: config.selectedModel.includes(m) ? 'rgba(56, 189, 248, 0.2)' : undefined,
+                  borderColor: config.selectedModel.includes(m) ? 'var(--cyan)' : undefined,
+                  color: config.selectedModel.includes(m) ? 'var(--cyan)' : undefined
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Error Alert */}
         {fetchError && (
-          <div style={{ padding: '4px 6px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--red)', color: 'var(--red)', fontSize: '9px', borderRadius: '4px' }}>
-            ⚠️ {fetchError}
+          <div style={{ padding: '5px 7px', background: 'rgba(239, 68, 68, 0.15)', border: '1px solid var(--red)', color: 'var(--red)', fontSize: '8.5px', borderRadius: '4px', lineHeight: '1.3' }}>
+            <div>⚠️ {fetchError}</div>
+            <div style={{ marginTop: '3px', display: 'flex', gap: '4px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const matched = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'openrouter';
+                  const list = (PROVIDER_DEFAULT_MODELS[matched] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
+                    id,
+                    name: id,
+                    owned_by: matched
+                  }));
+                  setAvailableModels(list);
+                  setFetchError('');
+                }}
+                style={{ fontSize: '8px', padding: '1px 4px' }}
+              >
+                ✨ Load Default Models
+              </button>
+            </div>
           </div>
         )}
 
@@ -885,7 +959,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', minHeight: '90px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
             <label style={{ fontSize: '9px', color: 'var(--fg-muted)' }}>
-              DISCOVERED MODELS ({availableModels.length})
+              AVAILABLE MODELS ({availableModels.length})
             </label>
             <input
               type="text"

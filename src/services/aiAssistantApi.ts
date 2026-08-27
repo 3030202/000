@@ -28,22 +28,6 @@ export interface AiProviderPreset {
 
 export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
   {
-    id: 'ollama',
-    name: 'Ollama (Local / VPS)',
-    baseUrl: 'http://localhost:11434/v1',
-    defaultModel: 'llama3.3',
-    requiresKey: false,
-    docUrl: 'https://ollama.com'
-  },
-  {
-    id: 'lmstudio',
-    name: 'LM Studio (Local)',
-    baseUrl: 'http://localhost:1234/v1',
-    defaultModel: 'local-model',
-    requiresKey: false,
-    docUrl: 'https://lmstudio.ai'
-  },
-  {
     id: 'openrouter',
     name: 'OpenRouter.ai',
     baseUrl: 'https://openrouter.ai/api/v1',
@@ -76,6 +60,22 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     docUrl: 'https://deepseek.com'
   },
   {
+    id: 'ollama',
+    name: 'Ollama (Local / VPS)',
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'llama3.3',
+    requiresKey: false,
+    docUrl: 'https://ollama.com'
+  },
+  {
+    id: 'lmstudio',
+    name: 'LM Studio (Local)',
+    baseUrl: 'http://localhost:1234/v1',
+    defaultModel: 'local-model',
+    requiresKey: false,
+    docUrl: 'https://lmstudio.ai'
+  },
+  {
     id: 'custom',
     name: 'Custom Endpoint / vLLM',
     baseUrl: 'http://localhost:8000/v1',
@@ -84,6 +84,31 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     docUrl: 'https://vllm.ai'
   }
 ];
+
+export const PROVIDER_DEFAULT_MODELS: Record<string, string[]> = {
+  openrouter: [
+    'anthropic/claude-3.5-sonnet',
+    'openai/gpt-4o',
+    'openai/gpt-4o-mini',
+    'deepseek/deepseek-r1',
+    'deepseek/deepseek-chat',
+    'meta-llama/llama-3.3-70b-instruct',
+    'google/gemini-2.0-flash-exp:free',
+    'qwen/qwen-2.5-coder-32b-instruct'
+  ],
+  openai: ['gpt-4o', 'gpt-4o-mini', 'o1', 'o1-mini', 'o3-mini', 'gpt-4-turbo'],
+  groq: [
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'deepseek-r1-distill-llama-70b',
+    'mixtral-8x7b-32768',
+    'gemma2-9b-it'
+  ],
+  deepseek: ['deepseek-chat', 'deepseek-reasoner'],
+  ollama: ['llama3.3', 'deepseek-r1', 'qwen2.5-coder', 'mistral', 'codellama', 'phi3'],
+  lmstudio: ['local-model', 'qwen2.5-7b', 'llama-3.2-3b', 'mistral-7b'],
+  custom: ['default', 'gpt-4o', 'llama3.3', 'deepseek-r1', 'claude-3.5-sonnet']
+};
 
 export interface AiConfig {
   baseUrl: string;
@@ -109,9 +134,9 @@ export const getSavedAiConfig = (): AiConfig => {
     }
   } catch {}
   return {
-    baseUrl: 'http://localhost:11434/v1',
+    baseUrl: 'https://openrouter.ai/api/v1',
     apiKey: '',
-    selectedModel: 'llama3.3',
+    selectedModel: 'anthropic/claude-3.5-sonnet',
     temperature: 0.7,
     maxTokens: 2048,
     systemPrompt: DEFAULT_SYSTEM_PROMPT
@@ -126,22 +151,44 @@ export const saveAiConfig = (cfg: AiConfig): void => {
  * Normalizes OpenAI-compatible Base URL (trims trailing slashes).
  */
 export const normalizeBaseUrl = (url: string): string => {
-  let clean = url.trim().replace(/\/+$/, '');
+  let clean = (url || '').trim().replace(/\/+$/, '');
+  if (!clean) return '';
   if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
-    clean = 'http://' + clean;
+    clean = 'https://' + clean;
   }
   return clean;
 };
 
 /**
- * Automatically fetch available models from an OpenAI-compatible /v1/models endpoint.
+ * Automatically fetch available models from an OpenAI-compatible /v1/models or /api/tags endpoint.
+ * Supports multi-candidate URL resolution, fallback presets, and CORS diagnostics.
  */
 export const fetchAvailableModels = async (
   rawBaseUrl: string,
   apiKey?: string
-): Promise<{ success: boolean; models: AiModelItem[]; error?: string }> => {
-  const baseUrl = normalizeBaseUrl(rawBaseUrl);
-  const modelsEndpoint = baseUrl.endsWith('/v1') ? `${baseUrl}/models` : `${baseUrl}/v1/models`;
+): Promise<{ success: boolean; models: AiModelItem[]; error?: string; endpointUsed?: string }> => {
+  let baseUrl = normalizeBaseUrl(rawBaseUrl);
+  if (!baseUrl) {
+    return { success: false, models: [], error: 'Base URL is empty' };
+  }
+
+  // Clean up any extraneous chat/completions or models suffixes
+  baseUrl = baseUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/models\/?$/, '');
+
+  // Generate candidate endpoints to test in sequence
+  const endpointsToTry: string[] = [];
+  if (baseUrl.endsWith('/v1')) {
+    endpointsToTry.push(`${baseUrl}/models`);
+    const parent = baseUrl.slice(0, -3);
+    endpointsToTry.push(`${parent}/api/tags`); // Native Ollama
+    endpointsToTry.push(`${parent}/models`);
+    endpointsToTry.push(`${baseUrl}/v1/models`);
+  } else {
+    endpointsToTry.push(`${baseUrl}/v1/models`);
+    endpointsToTry.push(`${baseUrl}/models`);
+    endpointsToTry.push(`${baseUrl}/api/tags`); // Native Ollama
+    endpointsToTry.push(`${baseUrl}/api/v1/models`);
+  }
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json'
@@ -150,59 +197,96 @@ export const fetchAvailableModels = async (
     headers['Authorization'] = `Bearer ${apiKey.trim()}`;
   }
 
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+  let lastError = '';
 
-    const response = await fetch(modelsEndpoint, {
-      method: 'GET',
-      headers,
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+  for (const endpoint of endpointsToTry) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-    if (!response.ok) {
-      return {
-        success: false,
-        models: [],
-        error: `HTTP ${response.status} (${response.statusText}) from ${modelsEndpoint}`
-      };
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        lastError = `HTTP ${response.status} (${response.statusText}) from ${endpoint}`;
+        continue;
+      }
+
+      const text = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        lastError = `Received non-JSON response from ${endpoint}`;
+        continue;
+      }
+
+      let rawList: any[] = [];
+      if (Array.isArray(data)) {
+        rawList = data;
+      } else if (Array.isArray(data.data)) {
+        rawList = data.data;
+      } else if (Array.isArray(data.models)) {
+        rawList = data.models;
+      }
+
+      const models: AiModelItem[] = rawList.map((item: any) => {
+        const id = typeof item === 'string' ? item : item.id || item.name || item.model || 'unknown';
+        return {
+          id,
+          name: item.name || item.id || id,
+          owned_by: item.owned_by || item.publisher || (endpoint.includes('tags') ? 'ollama' : 'custom'),
+          created: item.created || (item.modified_at ? new Date(item.modified_at).getTime() / 1000 : undefined)
+        };
+      }).filter(m => m.id && m.id !== 'unknown');
+
+      if (models.length > 0) {
+        models.sort((a, b) => a.id.localeCompare(b.id));
+        return { success: true, models, endpointUsed: endpoint };
+      }
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        lastError = `Timeout (6s) connecting to ${endpoint}`;
+      } else if (err.message?.includes('Failed to fetch') || err.name === 'TypeError') {
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+        if (isHttps && endpoint.startsWith('http://')) {
+          lastError = `Browser blocked HTTP endpoint "${endpoint}" on HTTPS page (Mixed Content). Use an HTTPS URL or local tunnel.`;
+        } else {
+          lastError = `CORS or Network Error connecting to "${endpoint}". Verify server is online and allows origin (e.g. OLLAMA_ORIGINS="*").`;
+        }
+      } else {
+        lastError = err.message || `Error connecting to ${endpoint}`;
+      }
     }
-
-    const data = await response.json();
-    let rawList: any[] = [];
-
-    if (Array.isArray(data)) {
-      rawList = data;
-    } else if (Array.isArray(data.data)) {
-      rawList = data.data;
-    } else if (Array.isArray(data.models)) {
-      rawList = data.models;
-    }
-
-    const models: AiModelItem[] = rawList.map((item: any) => ({
-      id: typeof item === 'string' ? item : item.id || item.name || 'unknown',
-      name: item.name || item.id,
-      owned_by: item.owned_by || item.publisher || 'custom',
-      created: item.created
-    }));
-
-    if (models.length === 0) {
-      // Fallback if returned object was empty
-      models.push({ id: 'default', name: 'default model', owned_by: 'custom' });
-    }
-
-    // Sort models alphabetically
-    models.sort((a, b) => a.id.localeCompare(b.id));
-
-    return { success: true, models };
-  } catch (err: any) {
-    return {
-      success: false,
-      models: [],
-      error: err.name === 'AbortError' ? 'Connection timed out (8s)' : err.message || 'Failed to connect to model endpoint'
-    };
   }
+
+  // Fallback: Populate preset default models so the user is never stuck with an empty list
+  let matchedPreset = 'custom';
+  for (const preset of AI_PROVIDER_PRESETS) {
+    try {
+      const pUrl = new URL(preset.baseUrl);
+      if (baseUrl.includes(preset.id) || baseUrl.includes(pUrl.hostname)) {
+        matchedPreset = preset.id;
+        break;
+      }
+    } catch {}
+  }
+
+  const fallbackList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.custom).map(id => ({
+    id,
+    name: id,
+    owned_by: matchedPreset
+  }));
+
+  return {
+    success: false,
+    models: fallbackList,
+    error: lastError || 'Failed to discover models from candidate endpoints'
+  };
 };
 
 export interface StreamChatOptions {
@@ -227,7 +311,13 @@ export const streamChatCompletion = async ({
   onDone,
   onError
 }: StreamChatOptions): Promise<void> => {
-  const baseUrl = normalizeBaseUrl(config.baseUrl);
+  let baseUrl = normalizeBaseUrl(config.baseUrl);
+  if (!baseUrl) {
+    onError('Base URL is empty. Please configure connection settings.');
+    return;
+  }
+
+  baseUrl = baseUrl.replace(/\/chat\/completions\/?$/, '').replace(/\/models\/?$/, '');
   const completionsEndpoint = baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`;
 
   const headers: Record<string, string> = {
