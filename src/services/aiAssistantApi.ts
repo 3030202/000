@@ -57,6 +57,22 @@ export interface AiProviderPreset {
 
 export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
   {
+    id: 'ollama',
+    name: 'Ollama Local (Qwen-Coder-32B)',
+    baseUrl: 'http://localhost:11434/v1',
+    defaultModel: 'qwen-coder-32b-abliterated',
+    requiresKey: false,
+    docUrl: 'https://ollama.com'
+  },
+  {
+    id: 'ollama-ip',
+    name: 'Ollama (127.0.0.1:11434)',
+    baseUrl: 'http://127.0.0.1:11434/v1',
+    defaultModel: 'qwen-coder-32b-abliterated',
+    requiresKey: false,
+    docUrl: 'https://ollama.com'
+  },
+  {
     id: 'tooken',
     name: 'Tooken.club / Proxy',
     baseUrl: 'https://tooken.club/v1',
@@ -97,14 +113,6 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     docUrl: 'https://deepseek.com'
   },
   {
-    id: 'ollama',
-    name: 'Ollama (Local / VPS)',
-    baseUrl: 'http://localhost:11434/v1',
-    defaultModel: 'llama3.3',
-    requiresKey: false,
-    docUrl: 'https://ollama.com'
-  },
-  {
     id: 'lmstudio',
     name: 'LM Studio (Local)',
     baseUrl: 'http://localhost:1234/v1',
@@ -116,13 +124,31 @@ export const AI_PROVIDER_PRESETS: AiProviderPreset[] = [
     id: 'custom',
     name: 'Custom Endpoint / vLLM',
     baseUrl: 'http://localhost:8000/v1',
-    defaultModel: 'default',
+    defaultModel: 'qwen-coder-32b-abliterated',
     requiresKey: false,
     docUrl: 'https://vllm.ai'
   }
 ];
 
 export const PROVIDER_DEFAULT_MODELS: Record<string, string[]> = {
+  ollama: [
+    'qwen-coder-32b-abliterated',
+    'qwen2.5-coder:32b',
+    'qwen2.5-coder',
+    'llama3.3',
+    'deepseek-r1:32b',
+    'deepseek-r1',
+    'mistral',
+    'codellama',
+    'phi3'
+  ],
+  'ollama-ip': [
+    'qwen-coder-32b-abliterated',
+    'qwen2.5-coder:32b',
+    'qwen2.5-coder:14b',
+    'qwen2.5-coder:7b',
+    'qwen2.5:32b'
+  ],
   tooken: [
     'gpt-4o',
     'gpt-4o-mini',
@@ -152,9 +178,8 @@ export const PROVIDER_DEFAULT_MODELS: Record<string, string[]> = {
     'gemma2-9b-it'
   ],
   deepseek: ['deepseek-chat', 'deepseek-reasoner'],
-  ollama: ['llama3.3', 'deepseek-r1', 'qwen2.5-coder', 'mistral', 'codellama', 'phi3'],
   lmstudio: ['local-model', 'qwen2.5-7b', 'llama-3.2-3b', 'mistral-7b'],
-  custom: ['default', 'gpt-4o', 'llama3.3', 'deepseek-r1', 'claude-3.5-sonnet']
+  custom: ['qwen-coder-32b-abliterated', 'default', 'gpt-4o', 'llama3.3', 'deepseek-r1', 'claude-3.5-sonnet']
 };
 
 /**
@@ -498,15 +523,34 @@ export const saveProviderProfiles = (profiles: SavedProviderProfile[]): void => 
   } catch {}
 };
 
+export const getFavoriteProviderIds = (): string[] => {
+  try {
+    const raw = localStorage.getItem('000_ai_favorite_providers');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return ['ollama', 'ollama-ip', 'tooken', 'openrouter', 'deepseek'];
+};
+
+export const saveFavoriteProviderIds = (providerIds: string[]): void => {
+  try {
+    localStorage.setItem('000_ai_favorite_providers', JSON.stringify(providerIds));
+  } catch {}
+};
+
 export const getFavoriteModelIds = (): string[] => {
   try {
     const raw = localStorage.getItem('000_ai_favorite_models');
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
   } catch {}
   return [
+    'qwen-coder-32b-abliterated',
+    'qwen2.5-coder:32b',
     'gpt-4o',
     'gpt-4o-mini',
     'claude-3-5-sonnet',
@@ -552,19 +596,20 @@ export const getSavedAiConfig = (): AiConfig => {
         ...parsed,
         systemPrompt: parsed.systemPrompt || DEFAULT_SYSTEM_PROMPT,
         enableTools: parsed.enableTools ?? true,
-        activeProviderId: parsed.activeProviderId || 'tooken'
+        activeProviderId: parsed.activeProviderId || 'ollama',
+        selectedModel: parsed.selectedModel || 'qwen-coder-32b-abliterated'
       };
     }
   } catch {}
   return {
-    baseUrl: 'https://tooken.club/v1',
+    baseUrl: 'http://localhost:11434/v1',
     apiKey: '',
-    selectedModel: 'gpt-4o',
+    selectedModel: 'qwen-coder-32b-abliterated',
     temperature: 0.7,
-    maxTokens: 2048,
+    maxTokens: 4096,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     enableTools: true,
-    activeProviderId: 'tooken'
+    activeProviderId: 'ollama'
   };
 };
 

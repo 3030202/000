@@ -16,6 +16,8 @@ import {
   SavedProviderProfile,
   getSavedProviderProfiles,
   saveProviderProfiles,
+  getFavoriteProviderIds,
+  saveFavoriteProviderIds,
   getFavoriteModelIds,
   saveFavoriteModelIds,
   fetchAvailableModels,
@@ -240,9 +242,10 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
   const [isFetchingModels, setIsFetchingModels] = useState(false);
   const [fetchError, setFetchError] = useState('');
 
-  // Provider Profiles & Favorite Models
+  // Provider Profiles & Favorite Models & Favorite Providers
   const [savedProfiles, setSavedProfiles] = useState<SavedProviderProfile[]>(getSavedProviderProfiles);
   const [favoriteModelIds, setFavoriteModelIds] = useState<string[]>(getFavoriteModelIds);
+  const [favoriteProviderIds, setFavoriteProviderIds] = useState<string[]>(getFavoriteProviderIds);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [newProfileName, setNewProfileName] = useState('');
 
@@ -261,6 +264,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'chat' | 'context' | 'voice' | 'config'>('chat');
 
   const [browserVoicesList, setBrowserVoicesList] = useState<SpeechSynthesisVoice[]>([]);
+  const [showOllamaGuide, setShowOllamaGuide] = useState(false);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -273,8 +277,8 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
   // Initial load of models & voices
   useEffect(() => {
     // Immediately load models list
-    const matchedPreset = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'openrouter';
-    const initialList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
+    const matchedPreset = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'ollama';
+    const initialList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.ollama).map(id => ({
       id,
       name: id,
       owned_by: matchedPreset,
@@ -304,6 +308,20 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     saveVoiceConfig(newVoiceCfg);
   };
 
+  const handleQuickConnectOllama = (url = 'http://localhost:11434/v1') => {
+    soundFx.playDeploySuccess();
+    const newCfg: AiConfig = {
+      ...config,
+      baseUrl: url,
+      apiKey: '',
+      selectedModel: 'qwen-coder-32b-abliterated',
+      activeProviderId: url.includes('127.0.0.1') ? 'ollama-ip' : 'ollama'
+    };
+    handleSaveAndSyncConfig(newCfg);
+    handleFetchModels(url);
+    addLog('OLLAMA', `Connected to local Ollama instance at ${url} with model qwen-coder-32b-abliterated`, 'success');
+  };
+
   const handleToggleFavorite = (modelId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     soundFx.playClick(1000);
@@ -311,6 +329,17 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
       const next = prev.includes(modelId) ? prev.filter(id => id !== modelId) : [...prev, modelId];
       saveFavoriteModelIds(next);
       addLog('AI-FAV', `${next.includes(modelId) ? 'Starred' : 'Unstarred'} favorite model: ${modelId}`, 'info');
+      return next;
+    });
+  };
+
+  const handleToggleFavoriteProvider = (providerId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    soundFx.playClick(1000);
+    setFavoriteProviderIds(prev => {
+      const next = prev.includes(providerId) ? prev.filter(id => id !== providerId) : [...prev, providerId];
+      saveFavoriteProviderIds(next);
+      addLog('AI-FAV', `${next.includes(providerId) ? 'Starred' : 'Unstarred'} favorite provider: ${providerId}`, 'info');
       return next;
     });
   };
@@ -1158,17 +1187,71 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
         </div>
 
         {/* Saved Provider Profiles Selector & Manager */}
-        <div style={{ background: '#030712', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ background: '#030712', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--cyan)' }}>
-              🗂️ SAVED PROVIDERS ({savedProfiles.length})
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--cyan)' }}>
+                🗂️ SAVED PROVIDERS ({savedProfiles.length})
+              </span>
+              <button
+                type="button"
+                onClick={(e) => handleToggleFavoriteProvider(config.activeProviderId || 'ollama', e)}
+                style={{
+                  fontSize: '8px',
+                  padding: '1px 5px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: favoriteProviderIds.includes(config.activeProviderId || 'ollama') ? 'var(--yellow)' : 'var(--fg-dim)',
+                  cursor: 'pointer'
+                }}
+                title="Добавить текущего провайдера в избранное"
+              >
+                {favoriteProviderIds.includes(config.activeProviderId || 'ollama') ? '⭐ В избранном' : '☆ В избранное'}
+              </button>
+            </div>
+
             <button
               onClick={() => setIsSavingProfile(!isSavingProfile)}
               style={{ fontSize: '8px', padding: '1px 5px', borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
             >
-              {isSavingProfile ? '✕ Cancel' : '+ Save As Profile'}
+              {isSavingProfile ? '✕ Cancel' : '+ Save Profile'}
             </button>
+          </div>
+
+          {/* Quick Favorite Provider Chips */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ fontSize: '7.5px', color: 'var(--yellow)', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span>⭐ ИЗБРАННЫЕ ПРОВАЙДЕРЫ ({savedProfiles.filter(p => favoriteProviderIds.includes(p.id)).length}):</span>
+            </div>
+            <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+              {savedProfiles
+                .filter(p => favoriteProviderIds.includes(p.id))
+                .map(profile => {
+                  const isActive = config.activeProviderId === profile.id;
+                  return (
+                    <button
+                      key={profile.id}
+                      type="button"
+                      onClick={() => handleSelectProviderProfile(profile.id)}
+                      style={{
+                        fontSize: '8px',
+                        padding: '2px 5px',
+                        background: isActive ? 'rgba(250, 204, 21, 0.25)' : 'rgba(250, 204, 21, 0.08)',
+                        borderColor: isActive ? 'var(--yellow)' : 'rgba(250, 204, 21, 0.4)',
+                        color: isActive ? 'var(--yellow)' : '#fff',
+                        fontWeight: isActive ? 'bold' : 'normal',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px'
+                      }}
+                      title={`Switch to ${profile.name} (${profile.baseUrl})`}
+                    >
+                      <span>⭐</span>
+                      <span>{profile.name.replace(' (Local / VPS)', '').replace(' Local', '')}</span>
+                    </button>
+                  );
+                })}
+            </div>
           </div>
 
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -1179,10 +1262,25 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
             >
               {savedProfiles.map(p => (
                 <option key={p.id} value={p.id}>
-                  {p.isCustom ? '⭐ [Custom] ' : '⚡ '} {p.name}
+                  {favoriteProviderIds.includes(p.id) ? '⭐ ' : ''}{p.isCustom ? '[Custom] ' : '⚡ '} {p.name}
                 </option>
               ))}
             </select>
+
+            {/* Quick Star Toggle Button next to select */}
+            <button
+              type="button"
+              onClick={(e) => handleToggleFavoriteProvider(config.activeProviderId || 'ollama', e)}
+              style={{
+                fontSize: '9px',
+                padding: '2px 6px',
+                borderColor: favoriteProviderIds.includes(config.activeProviderId || '') ? 'var(--yellow)' : 'var(--border)',
+                color: favoriteProviderIds.includes(config.activeProviderId || '') ? 'var(--yellow)' : 'var(--fg-dim)'
+              }}
+              title="Переключить избранное для активного провайдера"
+            >
+              {favoriteProviderIds.includes(config.activeProviderId || '') ? '⭐' : '☆'}
+            </button>
 
             {activeProfile?.isCustom && (
               <button
@@ -1203,7 +1301,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                 value={newProfileName}
                 onChange={e => setNewProfileName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') handleSaveCurrentAsProfile(); }}
-                placeholder="Profile name (e.g. My Tooken.club, VPS vLLM)..."
+                placeholder="Profile name (e.g. Ollama Qwen-32B, Tooken.club, VPS vLLM)..."
                 style={{ flex: 1, fontSize: '8.5px', padding: '2px 4px' }}
               />
               <button
@@ -1237,6 +1335,92 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Dedicated Ollama Local Connection & Diagnostics Card */}
+        <div
+          style={{
+            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1), rgba(15, 23, 42, 0.9))',
+            border: config.baseUrl.includes('11434') ? '1px solid var(--cyan)' : '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '6px',
+            padding: '7px 8px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '9.5px', fontWeight: 'bold', color: 'var(--cyan)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>🦙</span>
+              <span>OLLAMA LOCAL (QWEN-CODER-32B)</span>
+            </span>
+            <span className={`pill ${config.baseUrl.includes('11434') ? 'green' : 'dim'}`} style={{ fontSize: '7.5px' }}>
+              {config.baseUrl.includes('11434') ? '● ACTIVE ENGINE' : 'OFFLINE'}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-accent"
+              onClick={() => handleQuickConnectOllama('http://localhost:11434/v1')}
+              style={{ fontSize: '8px', padding: '2px 6px' }}
+            >
+              🔌 Подключить (localhost:11434)
+            </button>
+            <button
+              type="button"
+              onClick={() => handleQuickConnectOllama('http://127.0.0.1:11434/v1')}
+              style={{ fontSize: '8px', padding: '2px 6px', borderColor: 'var(--cyan)', color: 'var(--cyan)' }}
+            >
+              🔌 Подключить (127.0.0.1:11434)
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOllamaGuide(!showOllamaGuide)}
+              style={{ fontSize: '8px', padding: '2px 5px', color: 'var(--yellow)', borderColor: 'var(--yellow)' }}
+              title="Инструкция по настройке OLLAMA_ORIGINS"
+            >
+              {showOllamaGuide ? '✕ Скрыть помощь' : 'ℹ️ Инструкция CORS'}
+            </button>
+          </div>
+
+          {/* Collapsible Ollama Setup Guide */}
+          {showOllamaGuide && (
+            <div
+              style={{
+                background: '#02040a',
+                border: '1px dashed var(--yellow)',
+                borderRadius: '4px',
+                padding: '6px',
+                fontSize: '8px',
+                fontFamily: 'monospace',
+                color: 'var(--fg-dim)',
+                lineHeight: '1.4',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '4px',
+                marginTop: '2px'
+              }}
+            >
+              <div style={{ color: 'var(--yellow)', fontWeight: 'bold' }}>
+                💡 Настройка доступа браузера к локальной Ollama (CORS):
+              </div>
+              <div>
+                1. <strong>Запуск модели:</strong>
+                <div style={{ background: '#090d1a', padding: '2px 4px', color: 'var(--green)', borderRadius: '2px', margin: '2px 0' }}>
+                  ollama run qwen-coder-32b-abliterated
+                </div>
+              </div>
+              <div>
+                2. <strong>Разрешить CORS для браузера:</strong>
+                <div style={{ background: '#090d1a', padding: '2px 4px', color: 'var(--cyan)', borderRadius: '2px', margin: '2px 0' }}>
+                  Windows (CMD/PowerShell): set OLLAMA_ORIGINS=* & ollama serve<br />
+                  Linux/macOS: OLLAMA_ORIGINS="*" ollama serve
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Base URL Configuration */}

@@ -185,3 +185,9 @@
   • New Status: COMPLETED
   • Notes: Implemented On-screen Cyber Numpad, instant real-time auto-submit on match («ПАПА ДОМА» mode), 30-minute session duration with live countdown and auto-relock, full Auth Audit Event Logging with Moscow timestamping, and dedicated F3 Access Audit Ledger & "Папа Дома" Telemetry Module. Production build succeeded (0 errors).
 
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-018
+  • New Status: COMPLETED
+  • Notes: Added ⭐ Favorite Providers Management (persistence, star toggles, quick switcher chips), dedicated Local Ollama connector with default `qwen-coder-32b-abliterated`, 1-click connect buttons (localhost / 127.0.0.1:11434), interactive CORS guide (`OLLAMA_ORIGINS=*`), and default config optimization. Production build succeeded (0 errors).
+
+

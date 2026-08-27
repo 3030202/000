@@ -76,4 +76,12 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   6. [`src/components/layout/Header.tsx`](file:///home/mx/000/src/components/layout/Header.tsx) & [`src/components/layout/MobileBottomNav.tsx`](file:///home/mx/000/src/components/layout/MobileBottomNav.tsx): Added live `👑 [ПАПА ДОМА: MM:SS]` session badge in header and bottom navigation.
 - **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,850 modules transformed). Git committed and deployed to VPS `31.76.102.23` (`https://03.0x101.lol`).
 
+### [2026-08-27] ⭐ Favorite Providers & Local Ollama Qwen-Coder-32B Integration
+- **Scope**: Support for favoriting AI providers (`⭐`), dedicated Local Ollama engine preset with default model `qwen-coder-32b-abliterated`, 1-click connect buttons (`http://localhost:11434/v1` and `http://127.0.0.1:11434/v1`), interactive CORS configuration guide (`OLLAMA_ORIGINS=*`), and favorite provider quick switcher chips.
+- **Components Created & Updated**:
+  1. [`src/services/aiAssistantApi.ts`](file:///home/mx/000/src/services/aiAssistantApi.ts): Added `getFavoriteProviderIds`, `saveFavoriteProviderIds`, updated `AI_PROVIDER_PRESETS` and `PROVIDER_DEFAULT_MODELS` with local Ollama (`qwen-coder-32b-abliterated`), and added `qwen-coder-32b-abliterated` to the top of favorite models.
+  2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added `⭐ Favorite Providers` chips row, `⭐`/`☆` star toggling on provider profiles, dedicated **🦙 OLLAMA LOCAL (QWEN-CODER-32B)** diagnostic card with 1-click connect actions, and interactive collapsible CORS instructions guide.
+- **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,850 modules transformed in 14.74s). Deployed to production VPS `31.76.102.23` (`https://03.0x101.lol`).
+
+
 
