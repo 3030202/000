@@ -41,9 +41,9 @@ services:
       - API_PORT=4000
       - API_HOST=0.0.0.0
     volumes:
-      # Read-only /proc and /sys for system metrics
-      - /proc:/proc:ro
-      - /sys:/sys:ro
+      # Read-only host /proc and /sys for system metrics (isolated in /host to avoid breaking runc exec/apparmor)
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
       # Docker socket for container introspection
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:

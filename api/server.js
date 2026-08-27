@@ -29,6 +29,7 @@ const dns = require('dns').promises;
 const PORT = process.env.API_PORT || 4000;
 const HOST = process.env.API_HOST || '0.0.0.0';
 const MISSION_SECRET = process.env.MISSION_SECRET || '';
+const PROC_PATH = fs.existsSync('/host/proc/stat') ? '/host/proc' : '/proc';
 
 // ─── Health endpoints to monitor (can be overridden via ENV) ─────────────────
 const DEFAULT_HEALTH_ENDPOINTS = process.env.HEALTH_ENDPOINTS
@@ -67,7 +68,7 @@ let _lastCpuTimes = null;
 
 function readCpuStat() {
   try {
-    const data = fs.readFileSync('/proc/stat', 'utf8');
+    const data = fs.readFileSync(`${PROC_PATH}/stat`, 'utf8');
     const lines = data.split('\n');
     const cpuLine = lines[0]; // 'cpu  ...'
     const parts = cpuLine.trim().split(/\s+/).slice(1).map(Number);
@@ -113,7 +114,7 @@ async function getCpuUsage() {
 // ─── /proc/meminfo parser ─────────────────────────────────────────────────────
 function getMemoryInfo() {
   try {
-    const data = fs.readFileSync('/proc/meminfo', 'utf8');
+    const data = fs.readFileSync(`${PROC_PATH}/meminfo`, 'utf8');
     const get = (key) => {
       const m = data.match(new RegExp(`^${key}:\\s+(\\d+)`, 'm'));
       return m ? parseInt(m[1], 10) : 0;
@@ -193,7 +194,7 @@ let _lastNetSample = null;
 
 function readNetStat() {
   try {
-    const data = fs.readFileSync('/proc/net/dev', 'utf8');
+    const data = fs.readFileSync(`${PROC_PATH}/net/dev`, 'utf8');
     const lines = data.split('\n').slice(2);
     let rxBytes = 0, txBytes = 0;
     for (const line of lines) {
