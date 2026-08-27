@@ -1,0 +1,13 @@
+{
+  "name": "000-api",
+  "version": "1.0.0",
+  "description": "000-Mission-Control Real-Data Monitoring API (zero dependencies)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

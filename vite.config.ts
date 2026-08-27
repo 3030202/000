@@ -78,6 +78,7 @@ function aiCorsProxyPlugin(): Plugin {
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: './',
   plugins: [react(), aiCorsProxyPlugin()],
   server: {
     port: 3000,

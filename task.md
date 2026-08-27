@@ -190,4 +190,12 @@
   • New Status: COMPLETED
   • Notes: Added ⭐ Favorite Providers Management (persistence, star toggles, quick switcher chips), dedicated Local Ollama connector with default `qwen-coder-32b-abliterated`, 1-click connect buttons (localhost / 127.0.0.1:11434), interactive CORS guide (`OLLAMA_ORIGINS=*`), and default config optimization. Production build succeeded (0 errors).
 
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-019
+  • New Status: COMPLETED
+  • Notes: Implemented 000-api microservice (pure Node.js 20 zero-dependencies API server) in Docker with access to /proc and docker socket. Added SSE real-time telemetry streaming (/monitor/sse/metrics, /monitor/sse/logs), Docker container actions (start/stop/restart), SSL cert inspector, parallel HTTP ping tester, and Master Secret auth integration. Connected HealthMatrix (D1), ResourceUsage (G3), DockerContainers (C3), and AI tools to live endpoints.
 
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-020
+  • New Status: COMPLETED
+  • Notes: Implemented 8 new interactive widget modules and expanded workbenches: C4 (SSL/TLS Certs Monitor), D4 (Instant Ping Tester), D8 (DNS Resolution Check via Cloudflare DoH), E3 (Webhook Dispatcher), H5 (JSON Formatter & Inspector), H6 (Base64 Encoder/Decoder), H7 (Text Diff Viewer), H10 (Markdown Previewer). Registered in registry.tsx. Production build verified (1855 modules, 0 errors).

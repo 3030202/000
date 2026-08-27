@@ -14,8 +14,33 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:80"
+    depends_on:
+      api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: 000_standalone_api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-4001}:4000"
+    environment:
+      - API_PORT=4000
+      - API_HOST=0.0.0.0
+    volumes:
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:4000/health"]
       interval: 15s
       timeout: 5s
       retries: 3

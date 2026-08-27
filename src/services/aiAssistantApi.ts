@@ -381,7 +381,46 @@ export const executeLocalTool = async (
 ): Promise<any> => {
   switch (toolName) {
     case 'get_system_telemetry': {
+      // Try to get real system metrics from the monitoring API
+      try {
+        const baseUrl = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron
+          ? 'http://localhost:4001'
+          : '';
+        const res = await fetch(`${baseUrl}/api/monitor/system`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const sys = await res.json();
+          return {
+            source: 'live',
+            status: 'NOMINAL',
+            defcon: context.dashboard?.defcon ?? 5,
+            vaultStatus: context.vault?.isVaultUnlocked ? 'UNLOCKED' : 'LOCKED',
+            totalProjects: context.dashboard?.projects?.length ?? 0,
+            projects: context.dashboard?.projects?.map((p: any) => ({ name: p.name, env: p.env, status: p.status })) ?? [],
+            hostname: sys.hostname,
+            platform: `${sys.platform}/${sys.arch}`,
+            uptime: sys.uptimeHuman,
+            loadAvg: sys.loadAvg,
+            systemUsage: {
+              cpuLoad: `${sys.cpu.usage}%`,
+              cpuCores: sys.cpu.cores,
+              cpuModel: sys.cpu.model,
+              memoryUsed: `${(sys.memory.usedMb / 1024).toFixed(2)} GB`,
+              memoryTotal: `${(sys.memory.totalMb / 1024).toFixed(2)} GB`,
+              memoryPct: `${sys.memory.pct}%`,
+              disk: sys.disk.map((d: any) => `${d.mount}: ${d.pct}% used (${d.usedMb >= 1024 ? (d.usedMb / 1024).toFixed(1) + 'G' : d.usedMb + 'M'} / ${d.sizeMb >= 1024 ? (d.sizeMb / 1024).toFixed(1) + 'G' : d.sizeMb + 'M'})`),
+              networkTx: `${(sys.network.txBytesPerSec / 1024 / 1024).toFixed(2)} MB/s`,
+              networkRx: `${(sys.network.rxBytesPerSec / 1024 / 1024).toFixed(2)} MB/s`,
+            },
+            topProcesses: sys.processes?.slice(0, 5).map((p: any) => `[${p.pid}] ${p.command} — CPU: ${p.cpu}% MEM: ${p.mem}%`),
+            logs: args.includeRecentLogs ? context.tools?.termHistory?.slice(-8) : undefined
+          };
+        }
+      } catch {
+        // fall through to mock
+      }
+      // Fallback to dashboard context mock
       return {
+        source: 'mock',
         status: 'NOMINAL',
         defcon: context.dashboard?.defcon ?? 5,
         vaultStatus: context.vault?.isVaultUnlocked ? 'UNLOCKED' : 'LOCKED',
@@ -389,24 +428,54 @@ export const executeLocalTool = async (
         projects: context.dashboard?.projects?.map((p: any) => ({ name: p.name, env: p.env, status: p.status })) ?? [],
         healthEndpoints: context.dashboard?.healthEndpoints?.map((h: any) => ({ name: h.name, url: h.url, status: h.status, latencyMs: h.latencyMs })) ?? [],
         systemUsage: {
-          cpuLoad: '12.4%',
-          memory: '3.6 GB / 16 GB',
-          diskNvme: '24% of 512 GB',
-          uptime: '14 days, 6 hours'
+          cpuLoad: 'unknown (API offline)',
+          memory: 'unknown (API offline)',
+          note: 'Deploy 000_api container for live system metrics'
         },
         logs: args.includeRecentLogs ? context.tools?.termHistory?.slice(-8) : undefined
       };
     }
 
     case 'get_docker_status': {
+      // Try to get real Docker containers from monitoring API
+      try {
+        const baseUrl = typeof window !== 'undefined' && (window as any).electronAPI?.isElectron
+          ? 'http://localhost:4001'
+          : '';
+        const res = await fetch(`${baseUrl}/api/monitor/docker`, { signal: AbortSignal.timeout(5000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.available) {
+            return {
+              source: 'live',
+              status: 'OK',
+              dockerAvailable: true,
+              total: data.containers.length,
+              running: data.containers.filter((c: any) => c.state?.toLowerCase() === 'running').length,
+              containers: data.containers.map((c: any) => ({
+                name: c.name,
+                image: c.image,
+                state: c.state,
+                status: c.status,
+                ports: c.ports,
+                cpu: c.stats?.cpu,
+                memory: c.stats?.memUsage,
+              }))
+            };
+          }
+          return { source: 'live', status: 'OK', dockerAvailable: false, message: 'Docker daemon not accessible in container' };
+        }
+      } catch {
+        // fall through to mock
+      }
+      // Fallback mock
       return {
+        source: 'mock',
         status: 'OK',
+        note: 'Deploy 000_api container with Docker socket access for live data',
         containers: [
-          { name: '000_standalone_app', image: '000-app:latest', status: 'Up 2 hours', ports: '80->80/tcp' },
-          { name: 'caddy_proxy', image: 'caddy:2-alpine', status: 'Up 14 hours', ports: '80/tcp, 443/tcp' },
-          { name: 'postgres_main', image: 'postgres:16-alpine', status: 'Up 2 days', ports: '5432/tcp' },
-          { name: 'redis_cache', image: 'redis:7-alpine', status: 'Up 2 days', ports: '6379/tcp' },
-          { name: 'telegram_bot_gw', image: 'node:20-alpine', status: 'Up 1 day', ports: '8443/tcp' }
+          { name: '000_standalone_app', image: '000-app:latest', status: 'Up', ports: '80/tcp' },
+          { name: 'caddy_proxy', image: 'caddy:2-alpine', status: 'Up', ports: '80, 443/tcp' },
         ]
       };
     }

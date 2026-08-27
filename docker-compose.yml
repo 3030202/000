@@ -1,8 +1,9 @@
 # ==============================================================================
 # 000-MISSION-CONTROL: PRODUCTION DOCKER COMPOSE STACK
 # Services:
-#   1. app: Multi-stage Nginx SPA container with hardened security
-#   2. caddy: Edge proxy with automatic Let's Encrypt / ZeroSSL certificate engine
+#   1. app:  Multi-stage Nginx SPA container with hardened security
+#   2. api:  Zero-dependency Node.js monitoring API (real CPU/RAM/Docker metrics)
+#   3. caddy: Edge proxy with automatic Let's Encrypt / ZeroSSL certificate engine
 # ==============================================================================
 
 services:
@@ -16,8 +17,37 @@ services:
       - "80"
     networks:
       - 000-net
+    depends_on:
+      api:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:80/"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: 000_api
+    restart: unless-stopped
+    expose:
+      - "4000"
+    environment:
+      - API_PORT=4000
+      - API_HOST=0.0.0.0
+    volumes:
+      # Read-only /proc and /sys for system metrics
+      - /proc:/proc:ro
+      - /sys:/sys:ro
+      # Docker socket for container introspection
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - 000-net
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:4000/health"]
       interval: 15s
       timeout: 5s
       retries: 3

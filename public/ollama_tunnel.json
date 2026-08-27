@@ -4,6 +4,6 @@
   "tunnelUrl": "https://03.0x101.lol/ollama/v1",
   "openAiEndpoint": "https://03.0x101.lol/ollama/v1",
   "defaultModel": "qwen-coder-32b-abliterated",
-  "connectedAt": "2026-08-27T04:19:00Z",
+  "connectedAt": "2026-08-27T06:12:05Z",
   "target": "http://127.0.0.1:11434"
 }

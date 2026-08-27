@@ -83,5 +83,22 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added `⭐ Favorite Providers` chips row, `⭐`/`☆` star toggling on provider profiles, dedicated **🦙 OLLAMA LOCAL (QWEN-CODER-32B)** diagnostic card with 1-click connect actions, and interactive collapsible CORS instructions guide.
 - **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,850 modules transformed in 14.74s). Deployed to production VPS `31.76.102.23` (`https://03.0x101.lol`).
 
+### [2026-08-27] Real-Data Monitoring API Service («000-api»)
+- **Scope**: Implemented lightweight Node.js 20 microservice (`api/server.js`) with zero npm dependencies. Direct read access to `/proc/stat`, `/proc/meminfo`, `/proc/net/dev`, `df`, and `/var/run/docker.sock`.
+- **Key Features**:
+  1. **Telemetry Endpoints**: `/health`, `/monitor/system`, `/monitor/processes`, `/monitor/docker`, `/monitor/ssl`, `/monitor/ping`.
+  2. **SSE Streaming**: `/monitor/sse/metrics` (live CPU/RAM/bandwidth every 1.5s) and `/monitor/sse/logs` (`docker logs -f`).
+  3. **Safe Container Actions**: `POST /monitor/docker/action` (`start`, `stop`, `restart`).
+  4. **Master Secret Auth**: Protected via `X-Mission-Secret` and Bearer token headers tied to Vault session («ПАПА ДОМА»).
+  5. **Nginx Integration**: Reverse proxy configured in `nginx.conf` (`^~ /api/monitor/` -> `http://api:4000/monitor/`).
+  6. **Frontend Integration**: Created [`src/services/monitorApi.ts`](file:///home/mx/000/src/services/monitorApi.ts) with typed client, availability checking, and fallback guards.
 
-
+### [2026-08-27] Widget Matrix Suite: C4, D4, D8, E3, H5, H6, H7, H10
+- **Scope**: Developed compact widgets and expanded workbenches for 8 modules to close core Dev/Ops and networking needs.
+- **Components Created**:
+  1. [`src/modules/groupC/SslCertWidgets.tsx`](file:///home/mx/000/src/modules/groupC/SslCertWidgets.tsx): **C4** SSL/TLS Certs Monitor with domain inspector, issuer, validity period, and days-remaining counters.
+  2. [`src/modules/groupD/NetworkDiagWidgets.tsx`](file:///home/mx/000/src/modules/groupD/NetworkDiagWidgets.tsx): **D4** Instant Ping Tester (live RTT, HTTP status, and probe history) & **D8** DNS Resolution Check (queries A, AAAA, CNAME, MX, NS, TXT via Cloudflare DoH).
+  3. [`src/modules/groupE/WebhookWidgets.tsx`](file:///home/mx/000/src/modules/groupE/WebhookWidgets.tsx): **E3** Webhook Dispatcher (custom HTTP POST/GET/PUT/DELETE, headers, JSON body, latency, and response inspector).
+  4. [`src/modules/groupH/UtilityWidgets.tsx`](file:///home/mx/000/src/modules/groupH/UtilityWidgets.tsx): **H5** JSON Formatter, Minifier & Type Inspector, **H6** Base64 Encoder/Decoder with swap, **H7** Text Diff Viewer with line-by-line colored diffs, and **H10** Markdown Previewer with real-time parser.
+  5. [`src/modules/registry.tsx`](file:///home/mx/000/src/modules/registry.tsx): Central registration of all 8 new modules in standard and expanded registries.
+- **Verification**: Ran `npm run build` (`tsc && vite build`) — 1,855 modules transformed, production build passed in 29.69s with 0 errors.
