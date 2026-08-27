@@ -33,6 +33,8 @@ services:
       dockerfile: Dockerfile
     container_name: 000_api
     restart: unless-stopped
+    security_opt:
+      - apparmor:unconfined
     expose:
       - "4000"
     environment:

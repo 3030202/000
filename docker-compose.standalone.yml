@@ -30,6 +30,8 @@ services:
       dockerfile: Dockerfile
     container_name: 000_standalone_api
     restart: unless-stopped
+    security_opt:
+      - apparmor:unconfined
     ports:
       - "${API_PORT:-4001}:4000"
     environment:
