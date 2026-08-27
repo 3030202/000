@@ -6,13 +6,16 @@ import { soundFx } from '../../services/soundFx';
 import {
   AiModelItem,
   ChatMessage,
+  ImageAttachment,
+  ToolCallExecution,
   AI_PROVIDER_PRESETS,
   PROVIDER_DEFAULT_MODELS,
   AiConfig,
   getSavedAiConfig,
   saveAiConfig,
   fetchAvailableModels,
-  streamChatCompletion
+  streamChatCompletion,
+  detectModelCapabilities
 } from '../../services/aiAssistantApi';
 import {
   VoiceConfig,
@@ -262,7 +265,8 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     const initialList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matchedPreset] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
       id,
       name: id,
-      owned_by: matchedPreset
+      owned_by: matchedPreset,
+      capabilities: detectModelCapabilities(id, matchedPreset)
     }));
     setAvailableModels(initialList);
 
@@ -304,7 +308,8 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     const fallbackList: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[preset.id] || PROVIDER_DEFAULT_MODELS.custom).map(id => ({
       id,
       name: id,
-      owned_by: preset.id
+      owned_by: preset.id,
+      capabilities: detectModelCapabilities(id, preset.id)
     }));
     setAvailableModels(fallbackList);
 
@@ -336,6 +341,58 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     }
   };
 
+  const [attachedImages, setAttachedImages] = useState<ImageAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const activeCaps = detectModelCapabilities(config.selectedModel);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        soundFx.playClick(1000);
+        setAttachedImages(prev => [
+          ...prev,
+          {
+            name: file.name,
+            dataUrl: reader.result as string,
+            type: file.type,
+            size: file.size
+          }
+        ]);
+        addLog('AI-VISION', `Attached image: ${file.name} (${Math.round(file.size / 1024)} KB)`, 'info');
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    if (e.clipboardData?.files?.length) {
+      for (const file of Array.from(e.clipboardData.files)) {
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            soundFx.playClick(1000);
+            setAttachedImages(prev => [
+              ...prev,
+              {
+                name: file.name || `screenshot_${Date.now()}.png`,
+                dataUrl: reader.result as string,
+                type: file.type,
+                size: file.size
+              }
+            ]);
+            addLog('AI-VISION', `Pasted clipboard screenshot (${Math.round(file.size / 1024)} KB)`, 'info');
+          };
+          reader.readAsDataURL(file);
+        }
+      }
+    }
+  };
+
   // Full-Duplex Loop: trigger voice listening after speech ends
   const triggerAutoListenIfHandsFree = () => {
     if (voiceConfig.isHandsFree) {
@@ -349,16 +406,20 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
 
   const handleSendMessage = async (customPrompt?: string) => {
     const textToSend = customPrompt || inputPrompt;
-    if (!textToSend.trim() || isStreaming) return;
+    if ((!textToSend.trim() && attachedImages.length === 0) || isStreaming) return;
 
     soundFx.playClick(1000);
     setInputPrompt('');
+
+    const currentAttachments = [...attachedImages];
+    setAttachedImages([]);
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: textToSend,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      images: currentAttachments.length > 0 ? currentAttachments : undefined
     };
 
     const assistantMsgId = (Date.now() + 1).toString();
@@ -384,6 +445,12 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
       timestamp: new Date().toISOString()
     };
 
+    const toolExecutionCtx = {
+      dashboard: { defcon, projects, healthEndpoints },
+      tools: { addLog, termHistory },
+      vault: { isVaultUnlocked }
+    };
+
     abortControllerRef.current = new AbortController();
 
     let streamBuffer = '';
@@ -391,7 +458,12 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
       config,
       messages: [...messages, userMsg],
       systemContext: liveContext,
+      toolContext: toolExecutionCtx,
       signal: abortControllerRef.current.signal,
+      onToolCall: (tc) => {
+        soundFx.playClick(900);
+        addLog('AI-TOOL', `Autonomous tool execution: ${tc.toolName} (${tc.status})`, tc.status === 'error' ? 'warn' : 'info');
+      },
       onChunk: (delta) => {
         streamBuffer += delta;
         setMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, content: streamBuffer } : m));
@@ -513,18 +585,38 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
     <div className="workbench-split">
       {/* Left Column: Streaming Markdown Chat & Voice Visualizer */}
       <div className="workbench-left" style={{ padding: '8px', gap: '6px' }}>
-        {/* Chat Header & Mode Bar */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {/* Chat Header & Capabilities Badges */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '4px', flexWrap: 'wrap', gap: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '11px', color: 'var(--cyan)', fontWeight: 'bold' }}>
-              🤖 000-MISSION AI COPILOT
+              🤖 000-COPILOT
             </span>
-            <span className="pill green" style={{ fontSize: '8.5px' }}>
+            <span className="pill green" style={{ fontSize: '8px', fontWeight: 'bold' }}>
               {config.selectedModel}
             </span>
+            {activeCaps.vision && (
+              <span className="pill cyan" style={{ fontSize: '7.5px' }} title="Vision / Image Understanding Supported">
+                👁️ VISION
+              </span>
+            )}
+            {activeCaps.tools && (
+              <span className="pill yellow" style={{ fontSize: '7.5px' }} title="Autonomous Function Calling / Tools Enabled">
+                ⚡ TOOLS
+              </span>
+            )}
+            {activeCaps.reasoning && (
+              <span className="pill purple" style={{ fontSize: '7.5px' }} title="Deep Chain-of-Thought Reasoning Model">
+                🧠 REASONING
+              </span>
+            )}
+            {activeCaps.code && (
+              <span className="pill blue" style={{ fontSize: '7.5px' }} title="SRE & DevOps Code Specialist">
+                💻 SRE CODE
+              </span>
+            )}
             {voiceConfig.isHandsFree && (
-              <span className="pill yellow" style={{ fontSize: '8px' }}>
-                📻 HANDS-FREE DUPLEX
+              <span className="pill yellow" style={{ fontSize: '7.5px' }}>
+                📻 HANDS-FREE
               </span>
             )}
           </div>
@@ -562,7 +654,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
         </div>
 
         {/* Live Cyber Audio Waveform Visualizer */}
-        <CyberAudioVisualizer state={voiceState} height={36} />
+        <CyberAudioVisualizer state={voiceState} height={32} />
 
         {/* Voice Quick Action Bar */}
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: 'rgba(2,6,18,0.7)', padding: '4px 6px', borderRadius: '4px', border: '1px solid var(--border)' }}>
@@ -610,28 +702,42 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
           )}
         </div>
 
-        {/* Quick DevOps Prompt Chips */}
-        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+        {/* Quick Tool Calling & DevOps Prompt Chips */}
+        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
           <button
-            onClick={() => handleSendMessage('Perform Root Cause Analysis (RCA) on any degraded endpoints or anomalies')}
+            onClick={() => handleSendMessage('Run get_system_telemetry and give me a full mission control health report')}
             disabled={isStreaming}
-            style={{ fontSize: '8.5px', padding: '2px 5px' }}
+            style={{ fontSize: '8px', padding: '2px 5px' }}
           >
-            🔍 Root Cause Analysis (RCA)
+            🔍 System Telemetry
           </button>
           <button
-            onClick={() => handleSendMessage('Review system security posture: DEFCON level, Zero-Knowledge secrets vault, and audit rules')}
+            onClick={() => handleSendMessage('Inspect current docker containers and port mappings using get_docker_status')}
             disabled={isStreaming}
-            style={{ fontSize: '8.5px', padding: '2px 5px' }}
+            style={{ fontSize: '8px', padding: '2px 5px' }}
           >
-            🛡️ Security Audit
+            🐳 Docker Status
           </button>
           <button
-            onClick={() => handleSendMessage('Generate bash runbook script to restart and healthcheck all docker services')}
+            onClick={() => handleSendMessage('Run ping diagnostic against 03.0x101.lol and 1.1.1.1')}
             disabled={isStreaming}
-            style={{ fontSize: '8.5px', padding: '2px 5px' }}
+            style={{ fontSize: '8px', padding: '2px 5px' }}
           >
-            💻 Bash Runbook
+            📡 Ping Diagnostic
+          </button>
+          <button
+            onClick={() => handleSendMessage('Generate a 32-character hex secret token for API authentication')}
+            disabled={isStreaming}
+            style={{ fontSize: '8px', padding: '2px 5px' }}
+          >
+            🔑 Generate Secret
+          </button>
+          <button
+            onClick={() => handleSendMessage('Perform Root Cause Analysis (RCA) on any degraded endpoints')}
+            disabled={isStreaming}
+            style={{ fontSize: '8px', padding: '2px 5px' }}
+          >
+            🛡️ Incident RCA
           </button>
         </div>
 
@@ -656,9 +762,9 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                 style={{
                   display: 'flex',
                   flexDirection: 'column',
-                  gap: '2px',
+                  gap: '3px',
                   alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                  maxWidth: '92%'
+                  maxWidth: '94%'
                 }}
               >
                 <div style={{ display: 'flex', gap: '6px', alignItems: 'center', fontSize: '8.5px', color: 'var(--fg-muted)', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
@@ -677,27 +783,97 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                   )}
                 </div>
 
-                <div
-                  style={{
-                    background: msg.role === 'user' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(15, 23, 42, 0.75)',
-                    border: msg.role === 'user' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid var(--border)',
-                    borderRadius: '6px',
-                    padding: '8px 10px',
-                    color: '#fff',
-                    fontSize: '10px',
-                    lineHeight: '1.45',
-                    fontFamily: 'monospace',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word'
-                  }}
-                >
-                  {msg.content}
-                </div>
+                {/* Attached Images Thumbnail Preview in Message */}
+                {msg.images && msg.images.length > 0 && (
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                    {msg.images.map((img, idx) => (
+                      <div key={idx} style={{ position: 'relative' }}>
+                        <img
+                          src={img.dataUrl}
+                          alt={img.name}
+                          style={{
+                            maxWidth: '180px',
+                            maxHeight: '120px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--cyan)',
+                            display: 'block',
+                            objectFit: 'cover'
+                          }}
+                        />
+                        <span style={{ fontSize: '7.5px', color: 'var(--cyan)', background: 'rgba(0,0,0,0.8)', padding: '1px 3px', borderRadius: '2px', position: 'absolute', bottom: '2px', left: '2px' }}>
+                          👁️ {img.name.slice(0, 18)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Autonomous Tool Invocation Cyber Cards */}
+                {msg.toolCalls && msg.toolCalls.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '4px' }}>
+                    {msg.toolCalls.map(tc => (
+                      <div
+                        key={tc.id}
+                        style={{
+                          background: '#040714',
+                          border: '1px solid rgba(250, 204, 21, 0.4)',
+                          borderRadius: '4px',
+                          padding: '6px 8px',
+                          fontSize: '8.5px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ color: 'var(--yellow)', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                            ⚡ TOOL INVOCATION: {tc.toolName}()
+                          </span>
+                          <span style={{ fontSize: '8px', color: tc.status === 'done' ? 'var(--green)' : 'var(--cyan)' }}>
+                            ● {tc.status.toUpperCase()}
+                          </span>
+                        </div>
+                        {Object.keys(tc.args).length > 0 && (
+                          <pre style={{ margin: '3px 0 0 0', fontSize: '8px', color: 'var(--fg-dim)', fontFamily: 'monospace' }}>
+                            {JSON.stringify(tc.args, null, 2)}
+                          </pre>
+                        )}
+                        {tc.result && (
+                          <details style={{ marginTop: '4px', fontSize: '8px' }}>
+                            <summary style={{ cursor: 'pointer', color: 'var(--green)' }}>
+                              ▶ View Output Result ({JSON.stringify(tc.result).length} B)
+                            </summary>
+                            <pre style={{ margin: '4px 0 0 0', maxHeight: '100px', overflowY: 'auto', background: '#010204', padding: '4px', borderRadius: '3px', color: 'var(--fg)' }}>
+                              {JSON.stringify(tc.result, null, 2)}
+                            </pre>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Assistant Message Bubble */}
+                {msg.content && (
+                  <div
+                    style={{
+                      background: msg.role === 'user' ? 'rgba(56, 189, 248, 0.12)' : 'rgba(15, 23, 42, 0.75)',
+                      border: msg.role === 'user' ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid var(--border)',
+                      borderRadius: '6px',
+                      padding: '8px 10px',
+                      color: '#fff',
+                      fontSize: '10px',
+                      lineHeight: '1.45',
+                      fontFamily: 'monospace',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+                )}
               </div>
             ))}
             {isStreaming && (
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '9px', color: 'var(--cyan)' }}>
-                <span className="animate-pulse">● Generating streaming inference...</span>
+                <span className="animate-pulse">● Generating streaming inference & executing tools...</span>
               </div>
             )}
             <div ref={chatEndRef} />
@@ -782,14 +958,61 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
           </div>
         )}
 
-        {/* Input Bar */}
-        <div style={{ display: 'flex', gap: '4px', borderTop: '1px solid var(--border)', paddingTop: '6px' }}>
+        {/* Attached Images Previews Above Input Bar */}
+        {attachedImages.length > 0 && (
+          <div style={{ display: 'flex', gap: '6px', padding: '4px', background: 'rgba(56, 189, 248, 0.08)', borderRadius: '4px', border: '1px solid rgba(56, 189, 248, 0.3)', alignItems: 'center' }}>
+            <span style={{ fontSize: '8.5px', color: 'var(--cyan)', fontWeight: 'bold' }}>📎 ATTACHED ({attachedImages.length}):</span>
+            {attachedImages.map((img, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '3px', background: '#000', padding: '2px 4px', borderRadius: '3px', border: '1px solid var(--border)' }}>
+                <img src={img.dataUrl} alt={img.name} style={{ width: '20px', height: '20px', objectFit: 'cover', borderRadius: '2px' }} />
+                <span style={{ fontSize: '8px', color: '#fff', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {img.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setAttachedImages(prev => prev.filter((_, i) => i !== idx))}
+                  style={{ fontSize: '8px', padding: '0 2px', border: 'none', background: 'transparent', color: 'var(--red)', cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Input Bar & Multi-modal File Input */}
+        <div style={{ display: 'flex', gap: '4px', borderTop: '1px solid var(--border)', paddingTop: '6px', alignItems: 'center' }}>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+          />
+
+          {/* Attach Image Button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              padding: '0 6px',
+              fontSize: '11px',
+              borderColor: attachedImages.length > 0 ? 'var(--cyan)' : undefined,
+              color: attachedImages.length > 0 ? 'var(--cyan)' : undefined
+            }}
+            title="Attach image or screenshot (or paste with Ctrl+V)"
+          >
+            📎
+          </button>
+
+          {/* Voice Input Button */}
           <button
             onClick={voiceState === 'listening' ? handleStopMic : handleStartMic}
             className={voiceState === 'listening' ? 'btn-accent' : ''}
             style={{
               padding: '0 8px',
-              fontSize: '12px',
+              fontSize: '11px',
               borderColor: voiceState === 'listening' ? 'var(--green)' : undefined,
               color: voiceState === 'listening' ? 'var(--green)' : undefined
             }}
@@ -797,15 +1020,25 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
           >
             🎙️
           </button>
+
+          {/* Text Input with Paste listener */}
           <input
             type="text"
             value={inputPrompt}
             onChange={e => setInputPrompt(e.target.value)}
+            onPaste={handlePaste}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) handleSendMessage(); }}
-            placeholder={voiceState === 'listening' ? 'Listening to your voice...' : 'Ask or speak to AI Copilot...'}
+            placeholder={
+              voiceState === 'listening'
+                ? 'Listening to your voice...'
+                : activeCaps.vision
+                ? 'Ask AI, paste screenshot (Ctrl+V), or query tools...'
+                : 'Ask or speak to AI Copilot...'
+            }
             disabled={isStreaming}
             style={{ flex: 1, fontSize: '10px', padding: '6px 8px' }}
           />
+
           {isStreaming ? (
             <button
               onClick={handleStopStreaming}
@@ -817,7 +1050,7 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
             <button
               className="btn-accent"
               onClick={() => handleSendMessage()}
-              disabled={!inputPrompt.trim()}
+              disabled={!inputPrompt.trim() && attachedImages.length === 0}
               style={{ fontSize: '10px', padding: '0 12px' }}
             >
               Send ⏎
@@ -939,10 +1172,11 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                 type="button"
                 onClick={() => {
                   const matched = AI_PROVIDER_PRESETS.find(p => config.baseUrl.includes(p.id))?.id || 'openrouter';
-                  const list = (PROVIDER_DEFAULT_MODELS[matched] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
+                  const list: AiModelItem[] = (PROVIDER_DEFAULT_MODELS[matched] || PROVIDER_DEFAULT_MODELS.openrouter).map(id => ({
                     id,
                     name: id,
-                    owned_by: matched
+                    owned_by: matched,
+                    capabilities: detectModelCapabilities(id, matched)
                   }));
                   setAvailableModels(list);
                   setFetchError('');
@@ -1013,6 +1247,29 @@ export const AiCopilotExpandedWorkbench: React.FC = () => {
                 {isFetchingModels ? 'Connecting to /v1/models...' : 'No models loaded. Click "🔄 Sync Models" above.'}
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Autonomous Tool Calling & Capabilities Profile */}
+        <div style={{ background: '#02040a', border: '1px solid var(--border)', borderRadius: '4px', padding: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '9px', fontWeight: 'bold', color: 'var(--yellow)' }}>
+              ⚡ TOOL CALLING & CAPABILITIES
+            </span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '8px', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={config.enableTools}
+                onChange={e => handleSaveAndSyncConfig({ ...config, enableTools: e.target.checked })}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', fontSize: '8px', color: 'var(--fg-dim)' }}>
+            <div>Vision: <strong style={{ color: activeCaps.vision ? 'var(--cyan)' : 'var(--fg-muted)' }}>{activeCaps.vision ? '✓ Active' : '✕ No'}</strong></div>
+            <div>Tools: <strong style={{ color: activeCaps.tools ? 'var(--yellow)' : 'var(--fg-muted)' }}>{activeCaps.tools ? '✓ Supported' : '✕ No'}</strong></div>
+            <div>Reasoning: <strong style={{ color: activeCaps.reasoning ? 'var(--purple)' : 'var(--fg-muted)' }}>{activeCaps.reasoning ? '✓ CoT' : '✕ Standard'}</strong></div>
+            <div>Context: <strong style={{ color: 'var(--green)' }}>{Math.round(activeCaps.contextWindow / 1000)}k tokens</strong></div>
           </div>
         </div>
 

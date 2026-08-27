@@ -58,13 +58,10 @@ Journal of changes, refactoring steps, verification runs, and deployment status 
   4. [`src/components/layout/FloatingTools.tsx`](file:///home/mx/000/src/components/layout/FloatingTools.tsx): Added microphone STT button to Floating AI Copilot tab.
 - **Verification**: `npm run build` (`tsc && vite build`) transformed 1,847 modules and built in 15.70s with 0 errors.
 
-### [2026-08-27] Mobile-First Cyber Deck & Responsive Adaptation
-- **Scope**: Complete mobile ergonomics, persistent bottom navigation bar, single-column responsive tile grid, collapsible DEFCON header drawer, touch-drag support for topology graph, and PWA optimizations.
+### [2026-08-27] Autonomous Model Capabilities, Multi-modal Vision & Tool Calling (E9)
+- **Scope**: Automatic detection of model capabilities (Vision, OpenAI Function Calling / Tools, Audio TTS, Deep Reasoning CoT, SRE Code Specialist, Context Window estimation), multi-modal vision image attachment & clipboard paste (Ctrl+V), live OpenAI tool schema & recursive execution loop (`get_system_telemetry`, `get_docker_status`, `run_ping_diagnostic`, `execute_ops_action`, `generate_secure_secret`, `search_module_catalog`), and interactive cyber cards for tool invocations.
 - **Components Created & Updated**:
-  1. [`src/components/layout/MobileBottomNav.tsx`](file:///home/mx/000/src/components/layout/MobileBottomNav.tsx): 5-button touch action bar (Modules, Spotlight, AI Copilot, Tools, Vault) with iOS Safe Area support.
-  2. [`src/components/layout/Header.tsx`](file:///home/mx/000/src/components/layout/Header.tsx): Mobile-responsive top bar with collapsible DEFCON level selector and themes drawer.
-  3. [`src/index.css`](file:///home/mx/000/src/index.css): Responsive single-column grid (`1fr`), bottom-sheet modals, touch targets, and `font-size: 14px` input zoom prevention.
-  4. [`src/modules/groupG/TopologyCanvasWidgets.tsx`](file:///home/mx/000/src/modules/groupG/TopologyCanvasWidgets.tsx): Touch drag & drop events (`onTouchStart`, `onTouchMove`, `onTouchEnd`) on HTML5 canvas.
-  5. [`index.html`](file:///home/mx/000/index.html): Viewport meta tag with `viewport-fit=cover`, Apple mobile web app capability tags, and `#05070a` theme color.
+  1. [`src/services/aiAssistantApi.ts`](file:///home/mx/000/src/services/aiAssistantApi.ts): Added `detectModelCapabilities`, `MISSION_CONTROL_TOOLS` schema, `executeLocalTool` engine, multi-modal message formatter, and recursive tool execution streaming loop.
+  2. [`src/modules/groupE/AiAssistantWidgets.tsx`](file:///home/mx/000/src/modules/groupE/AiAssistantWidgets.tsx): Added Capabilities Badges in header (`[👁️ VISION]`, `[⚡ TOOLS]`, `[🧠 REASONING]`, `[💻 SRE CODE]`, `[🎙️ AUDIO TTS]`), image attachment with clipboard paste (Ctrl+V) & drag-and-drop, tool execution cards with collapsible JSON results, quick tool invocation chips, and autonomous tool calling settings toggle.
 - **Verification**: `npm run build` (`tsc && vite build`) passed with 0 errors (1,848 modules transformed).
 

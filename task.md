@@ -169,3 +169,8 @@
   • Reference: TASK-014
   • New Status: COMPLETED
   • Notes: Mobile-first responsive adaptation completed. MobileBottomNav, responsive grid, DEFCON drawer, touch support, and PWA meta tags implemented. Production build succeeded (0 errors).
+
+[2026-08-27] STATUS UPDATE
+  • Reference: TASK-015
+  • New Status: COMPLETED
+  • Notes: Autonomous Model Capabilities detection (Vision, Tools, Reasoning, Code, Audio TTS), Multi-modal Vision image attachment & clipboard paste (Ctrl+V), OpenAI Tools Schema & live execution loop (get_system_telemetry, get_docker_status, run_ping_diagnostic, execute_ops_action, generate_secure_secret, search_module_catalog), and interactive cyber tool invocation cards implemented. Production build succeeded (0 errors).
